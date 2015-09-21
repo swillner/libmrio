@@ -831,4 +831,5 @@ void Disaggregation<T, I>::adjust(const unsigned char& d) {
     }
 }
 
-template class Disaggregation<double, short>;
+template class Disaggregation<double, unsigned short>;
+template class Disaggregation<float, unsigned short>;

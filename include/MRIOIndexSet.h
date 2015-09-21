@@ -1,19 +1,3 @@
-/**
- * \copyright Copyright (c) 2014, Sven N. Willner <sven.willner@pik-potsdam.de>
- *
- * \license {Permission to use, copy, modify, and/or distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
- * copyright notice and this permission notice appear in all copies.
- *
- * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
- * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
- * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
- * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
- * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
- * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.}
- */
-
 #ifndef MRIOINDEXSET_H_
 #define MRIOINDEXSET_H_
 
@@ -47,6 +31,7 @@ namespace mrio {
             const I& level_index() const {
                 return level_index_;
             };
+            virtual ~IndexPart() {};
     };
 
     template<typename I> class SuperSector;
@@ -186,8 +171,6 @@ namespace mrio {
             vector<I> indices_;
 
             void readjust_pointers();
-            SuperSector<I>* add_sector(const string& name);
-            SuperRegion<I>* add_region(const string& name);
         public:
             class total_iterator {
                 private:
@@ -350,6 +333,12 @@ namespace mrio {
             const I& size() const {
                 return size_;
             };
+            const I& total_regions_count() const {
+                return total_regions_count_;
+            };
+            const I& total_sectors_count() const {
+                return total_sectors_count_;
+            };
             const vector<SuperSector<I>*>& supersectors() const {
                 return supersectors_;
             };
@@ -372,12 +361,22 @@ namespace mrio {
             virtual ~IndexSet() {
                 clear();
             };
+            SuperSector<I>* add_sector(const string& name);
+            SuperRegion<I>* add_region(const string& name);
             void add_index(const string& sector_name, const string& region_name);
+            void add_index(SuperSector<I>* sector, SuperRegion<I>* region);
             void rebuild_indices();
             inline const I& at(const Sector<I>* sector, const Region<I>* region) const {
                 assert(!sector->has_sub());
                 assert(!region->has_sub());
                 return indices_.at(*sector * total_regions_count_ + *region);
+            };
+            inline const I& at(const string& sector_name, const string& region_name) const {
+                const Sector<I>* sector_ = sector(sector_name);
+                const Region<I>* region_ = region(region_name);
+                assert(!sector_->has_sub());
+                assert(!region_->has_sub());
+                return indices_.at(*sector_ * total_regions_count_ + *region_);
             };
             inline const I& operator()(const Sector<I>* sector, const Region<I>* region) const noexcept {
                 assert(*sector * total_regions_count_ + *region >= 0);

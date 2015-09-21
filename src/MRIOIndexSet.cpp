@@ -68,15 +68,20 @@ SuperRegion<I>* IndexSet<I>::add_region(const string& name) {
 }
 
 template<typename I>
+void IndexSet<I>::add_index(SuperSector<I>* sector, SuperRegion<I>* region) {
+    region->sectors_.push_back(sector);
+    sector->regions_.push_back(region);
+    size_++;
+}
+
+template<typename I>
 void IndexSet<I>::add_index(const string& sector_name, const string& region_name) {
     SuperSector<I>* sector = add_sector(sector_name);
     SuperRegion<I>* region = add_region(region_name);
     if (find(region->sectors_.begin(), region->sectors_.end(), sector) != region->sectors_.end()) {
         throw runtime_error("Combination of sector and region already given");
     }
-    region->sectors_.push_back(sector);
-    sector->regions_.push_back(region);
-    size_++;
+    add_index(sector, region);
 }
 
 template<typename I>
@@ -145,6 +150,7 @@ IndexSet<I>& IndexSet<I>::operator=(const IndexSet<I>& other) {
     subregions_ = other.subregions_;
     indices_ = other.indices_;
     readjust_pointers();
+    return *this;
 }
 
 template<typename I>
@@ -270,4 +276,4 @@ void IndexSet<I>::insert_subregions(const string& name, const vector<string>& ne
     rebuild_indices();
 }
 
-template class IndexSet<short int>;
+template class IndexSet<unsigned short>;

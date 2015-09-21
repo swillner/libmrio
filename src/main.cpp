@@ -12,8 +12,8 @@
 using namespace std;
 
 // Define types used in templates
-typedef short I; // Index type
-typedef double T; // Data type
+typedef unsigned short I; // Index type
+typedef float T; // Data type
 
 const char* argp_program_bug_address = "<sven.willner@pik-potsdam.de>";
 static char doc[] = "Flexible algorithm for regional and sectoral disaggregation of multi-regional input-output tables.\n\
@@ -99,7 +99,8 @@ int main(int argc, char* argv[]) {
         if (!data) {
             throw runtime_error("Could not open data file");
         }
-        mrio::Table<T, I> basetable(indices, data, arguments.threshold);
+        mrio::Table<T, I> basetable;
+        basetable.read_from_csv(indices, data, arguments.threshold);
         indices.close();
         data.close();
         cout << "done" << endl;

@@ -17,9 +17,8 @@ namespace mrio {
             deque<T> data;
             IndexSet<I> index_set_;
 
-            void read_indices(istream& indicesstream);
-            void read_data(istream& datastream, const T& threshold);
-            void read_from_csv(istream& indicesstream, istream& datastream, const T& threshold);
+            void read_indices_from_csv(istream& indicesstream);
+            void read_data_from_csv(istream& datastream, const T& threshold);
             void insert_sector_offset_x_y(const SuperSector<I>* i, const I& i_regions_count, const I& subsectors_count);
             void insert_sector_offset_y(const SuperSector<I>* i, const I& i_regions_count, const I& subsectors_count, const I& x, const I& x_offset, const I& divide_by);
             void insert_region_offset_x_y(const SuperRegion<I>* r, const I& r_sectors_count, const I& subregions_count);
@@ -27,9 +26,7 @@ namespace mrio {
                                         const I& first_index, const I& last_index);
 
         public:
-            Table(istream& indicesstream, istream& datastream, const T& threshold = 0) {
-                read_from_csv(indicesstream, datastream, threshold);
-            };
+            Table() {};
             Table(const IndexSet<I>& index_set, const T default_value = numeric_limits<T>::signaling_NaN()) : index_set_(index_set) {
                 data.resize(index_set_.size() * index_set_.size(), default_value);
             };
@@ -41,6 +38,9 @@ namespace mrio {
             const T sum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept;
             const T basesum(const SuperSector<I>* i, const SuperRegion<I>* r, const SuperSector<I>* j, const SuperRegion<I>* s) const noexcept;
             void write_to_csv(ostream& os) const;
+            void write_to_mrio(ostream& os) const;
+            void read_from_csv(istream& indicesstream, istream& datastream, const T& threshold);
+            void read_from_mrio(istream& instream, const T& threshold);
 
             inline T& at(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
                 assert(index_set_.at(i, r) >= 0);
@@ -103,6 +103,9 @@ namespace mrio {
             void replace_table_from(const Table& other) {
                 data = other.data;
             };
+            const deque<T>& raw_data() const {
+                return data;
+            }
             void debug_out() const; // TODO
     };
 }

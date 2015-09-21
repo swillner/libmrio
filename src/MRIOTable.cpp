@@ -128,7 +128,7 @@ static inline bool readline(istream& stream, string* vars, unsigned char num_var
 }
 
 template<typename T, typename I>
-void Table<T, I>::read_indices(istream& indicesstream) {
+void Table<T, I>::read_indices_from_csv(istream& indicesstream) {
     string cols[2];
     I l = 0;
     try {
@@ -149,30 +149,29 @@ void Table<T, I>::read_indices(istream& indicesstream) {
 }
 
 template<typename T, typename I>
-void Table<T, I>::read_data(istream& datastream, const T& threshold) {
+void Table<T, I>::read_data_from_csv(istream& datastream, const T& threshold) {
     string line;
     I l = 0;
     try {
-        for (const auto& row : index_set_.total_indices) {
+        typename deque<T>::iterator d = data.begin();
+        for (l = 0; l < index_set_.size(); l++) {
             if (l == numeric_limits<I>::max()) {
                 throw runtime_error("Too many rows");
             }
-            l++;
             if (!getline(datastream, line)) {
                 throw runtime_error("Not enough rows");
             }
             istringstream ss(line);
             string tmp;
-            for (const auto& col : index_set_.total_indices) {
+            for (I c = 0; c < index_set_.size(); c++) {
                 if (!getline(ss, tmp, ',')) {
                     throw runtime_error("Not enough columns");
                 }
                 T flow = stof(tmp.c_str());
                 if (flow > threshold) {
-                    at(row.index, col.index) = flow;
-                } else {
-                    at(row.index, col.index) = 0;
+                    *d = flow;
                 }
+                d++;
             }
         }
     } catch (const runtime_error& ex) {
@@ -190,9 +189,9 @@ void Table<T, I>::read_data(istream& datastream, const T& threshold) {
 
 template<typename T, typename I>
 void Table<T, I>::read_from_csv(istream& indicesstream, istream& datastream, const T& threshold) {
-    read_indices(indicesstream);
-    data.resize(index_set_.size() * index_set_.size(), numeric_limits<T>::signaling_NaN());
-    read_data(datastream, threshold);
+    read_indices_from_csv(indicesstream);
+    data.resize(index_set_.size() * index_set_.size(), 0);
+    read_data_from_csv(datastream, threshold);
 }
 
 template<typename T, typename I>
@@ -209,6 +208,90 @@ void Table<T, I>::write_to_csv(ostream& outstream) const {
 }
 
 template<typename T, typename I>
+void Table<T, I>::read_from_mrio(istream& instream, const T& threshold) {
+    unsigned char c;
+    instream.read((char*)&c, sizeof(c));
+    if (c != sizeof(I)) {
+        throw runtime_error("index type size mismatch");
+    }
+    instream.read((char*)&c, sizeof(c));
+    if (c != sizeof(T)) {
+        throw runtime_error("data type size mismatch");
+    }
+    I sectors_count;
+    instream.read((char*)&sectors_count, sizeof(I));
+    string s;
+    for (I i = 0; i < sectors_count; i++) {
+        getline(instream, s, '\0');
+        index_set_.add_sector(s);
+    }
+    I regions_count;
+    instream.read((char*)&regions_count, sizeof(I));
+    for (I i = 0; i < regions_count; i++) {
+        getline(instream, s, '\0');
+        index_set_.add_region(s);
+    }
+    I index_count;
+    instream.read((char*)&index_count, sizeof(I));
+    for (I i = 0; i < index_count; i++) {
+        I sector_index, region_index;
+        instream.read((char*)&sector_index, sizeof(I));
+        instream.read((char*)&region_index, sizeof(I));
+        index_set_.add_index(index_set_.supersectors()[sector_index], index_set_.superregions()[region_index]);
+    }
+    index_set_.rebuild_indices();
+    data.resize(index_set_.size() * index_set_.size(), 0);
+    T val;
+    for (auto& d : data) {
+        instream.read((char*)&val, sizeof(T));
+        if (val > threshold) {
+            d = val;
+        }
+    }
+}
+
+template<typename T, typename I>
+void Table<T, I>::write_to_mrio(ostream& outstream) const {
+    debug_out();
+    unsigned char c = sizeof(I);
+    outstream.write((const char*) &c, sizeof(c));
+    c = sizeof(T);
+    outstream.write((const char*) &c, sizeof(c));
+    outstream.write((const char*)&index_set_.total_sectors_count(), sizeof(I));
+    c = 0;
+    for (const auto& sector : index_set_.supersectors()) {
+        if (sector->has_sub()) {
+            for (const auto& subsector : sector->sub()) {
+                outstream.write(subsector->name.c_str(), subsector->name.size() + 1);
+            }
+        } else {
+            outstream.write(sector->name.c_str(), sector->name.size() + 1);
+        }
+    }
+    outstream.write((const char*)&index_set_.total_regions_count(), sizeof(I));
+    for (const auto& region : index_set_.superregions()) {
+        if (region->has_sub()) {
+            for (const auto& subregion : region->sub()) {
+                outstream.write(subregion->name.c_str(), subregion->name.size() + 1);
+            }
+        } else {
+            outstream.write(region->name.c_str(), region->name.size() + 1);
+        }
+    }
+
+    outstream.write((const char*)&index_set_.size(), sizeof(I));
+    for (const auto& row : index_set_.total_indices) {
+        outstream.write((const char*)&row.sector->total_index(), sizeof(I));
+        outstream.write((const char*)&row.region->total_index(), sizeof(I));
+    }
+    for (const auto& row : index_set_.total_indices) {
+        for (const auto& col : index_set_.total_indices) {
+            outstream.write((const char*) & (*this)(row.index, col.index), sizeof(T));
+        }
+    }
+}
+
+template<typename T, typename I>
 void Table<T, I>::insert_sector_offset_x_y(const SuperSector<I>* i, const I& i_regions_count, const I& subsectors_count) {
     auto region = i->regions().rbegin();
     if (region != i->regions().rend()) {
@@ -221,7 +304,7 @@ void Table<T, I>::insert_sector_offset_x_y(const SuperSector<I>* i, const I& i_r
         }
         I new_size = index_set_.size() + i_regions_count * (subsectors_count - 1);
         I x_offset = new_size;
-        for (I x = index_set_.size() - 1; x >= 0; x--) {
+        for (I x = index_set_.size(); x-- > 0;) {
             if (x == next) {
                 x_offset -= subsectors_count;
                 if (subregion != (*region)->sub().rend()) {
@@ -242,7 +325,7 @@ void Table<T, I>::insert_sector_offset_x_y(const SuperSector<I>* i, const I& i_r
                 } else {
                     next = index_set_(i, *subregion);
                 }
-                for (I offset = subsectors_count - 1; offset >= 0; offset--) {
+                for (I offset = subsectors_count; offset-- > 0;) {
                     insert_sector_offset_y(i, i_regions_count, subsectors_count, x, x_offset + offset, subsectors_count);
                 }
             } else {
@@ -267,7 +350,7 @@ void Table<T, I>::insert_sector_offset_y(const SuperSector<I>* i, const I& i_reg
         }
         I new_size = index_set_.size() + i_regions_count * (subsectors_count - 1);
         I y_offset = new_size;
-        for (I y = index_set_.size() - 1; y >= 0; y--) {
+        for (I y = index_set_.size(); y-- > 0;) {
             if (y == next) {
                 y_offset -= subsectors_count;
                 if (subregion != (*region)->sub().rend()) {
@@ -288,7 +371,7 @@ void Table<T, I>::insert_sector_offset_y(const SuperSector<I>* i, const I& i_reg
                 } else {
                     next = index_set_(i, *subregion);
                 }
-                for (I offset = subsectors_count - 1; offset >= 0; offset--) {
+                for (I offset = subsectors_count; offset-- > 0;) {
                     data[x_offset * new_size + y_offset + offset] = data[x * index_set_.size() + y] / subsectors_count / divide_by;
                 }
             } else {
@@ -319,15 +402,15 @@ void Table<T, I>::insert_region_offset_x_y(const SuperRegion<I>* r, const I& r_s
             first_index = index_set_(*first_subsector, r);
         }
         I new_size = index_set_.size() + r_sectors_count * (subregions_count - 1);
-        for (I x = index_set_.size() - 1; x > last_index; x--) {
+        for (I x = index_set_.size() ; x-- > last_index + 1;) {
             insert_region_offset_y(r, r_sectors_count, subregions_count, x, new_size + x - index_set_.size(), 1, first_index, last_index);
         }
-        for (I x = last_index; x >= first_index; x--) {
-            for (I offset = subregions_count - 1; offset >= 0; offset--) {
+        for (I x = last_index + 1; x-- > first_index;) {
+            for (I offset = subregions_count; offset-- > 0;) {
                 insert_region_offset_y(r, r_sectors_count, subregions_count, x, x + offset * r_sectors_count, subregions_count, first_index, last_index);
             }
         }
-        for (I x = first_index - 1; x >= 0; x--) {
+        for (I x = first_index; x-- > 0;) {
             insert_region_offset_y(r, r_sectors_count, subregions_count, x, x, 1, first_index, last_index);
         }
     }
@@ -336,23 +419,24 @@ void Table<T, I>::insert_region_offset_x_y(const SuperRegion<I>* r, const I& r_s
 template<typename T, typename I>
 void Table<T, I>::insert_region_offset_y(const SuperRegion<I>* r, const I& r_sectors_count, const I& subregions_count, const I& x, const I& x_offset,
         const I& divide_by, const I& first_index, const I& last_index) {
+    (void)(r);
     I new_size = index_set_.size() + r_sectors_count * (subregions_count - 1);
-    for (I y = index_set_.size() - 1; y > last_index; y--) {
+    for (I y = index_set_.size(); y-- > last_index + 1;) {
         data[x_offset * new_size + new_size + y - index_set_.size()] = data[x * index_set_.size() + y] / divide_by;
     }
-    for (I y = last_index; y >= first_index; y--) {
-        for (I offset = subregions_count - 1; offset >= 0; offset--) {
+    for (I y = last_index + 1; y-- > first_index;) {
+        for (I offset = subregions_count; offset-- > 0;) {
             data[x_offset * new_size + y + offset * r_sectors_count] = data[x * index_set_.size() + y] / subregions_count / divide_by;
         }
     }
-    for (I y = first_index - 1; y >= 0; y--) {
+    for (I y = first_index; y-- > 0;) {
         data[x_offset * new_size + y] = data[x * index_set_.size() + y] / divide_by;
     }
 }
 
 template<typename T, typename I>
 void Table<T, I>::debug_out() const {
-#ifdef DEBUG
+#ifdef DEBUGOUT
     cout << "\n====\n";
     cout << std::setprecision(3) << std::fixed;
     for (const auto& y : index_set_.total_indices) {
@@ -431,5 +515,6 @@ void Table<T, I>::insert_subregions(const string& name, const vector<string>& su
     debug_out();
 }
 
-template class Table<double, short>;
-template class Table<unsigned char, short>;
+template class Table<float, unsigned short>;
+template class Table<double, unsigned short>;
+template class Table<unsigned char, unsigned short>;
