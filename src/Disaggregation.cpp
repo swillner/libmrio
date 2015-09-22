@@ -11,7 +11,7 @@ using namespace std;
 using namespace mrio;
 
 template<typename T, typename I>
-Disaggregation<T, I>::Disaggregation(const Table<T, I>* basetable) : basetable(basetable) {
+Disaggregation<T, I>::Disaggregation(const Table<T, I>* basetable_p) : basetable(basetable_p) {
     table = new Table<T, I>(*basetable);
     for (unsigned char j = 0; j < PROXY_COUNT; j++) {
         proxies[j] = nullptr;

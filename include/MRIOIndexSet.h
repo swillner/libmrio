@@ -6,7 +6,11 @@
 #include <unordered_map>
 #include <set>
 #include <iostream>
+#ifdef DEBUG
 #include <cassert>
+#else
+#define assert(a) {}
+#endif
 
 using namespace std;
 
@@ -18,8 +22,8 @@ namespace mrio {
         protected:
             I total_index_; ///< index on all sector/region levels
             I level_index_; ///< index on current level
-            IndexPart(const string& name, const I& total_index, const I& level_index)
-                : name(name), total_index_(total_index), level_index_(level_index) {};
+            IndexPart(const string& name_p, const I& total_index_p, const I& level_index_p)
+                : name(name_p), total_index_(total_index_p), level_index_(level_index_p) {};
         public:
             const string name;
             operator I() const {
@@ -38,10 +42,11 @@ namespace mrio {
     template<typename I> class Sector : public IndexPart<I> {
             friend class IndexSet<I>;
         protected:
-            Sector(const string& name, const I& total_index, const I& level_index)
-                : IndexPart<I>(name, total_index, level_index) {};
+            Sector(const string& name_p, const I& total_index_p, const I& level_index_p)
+                : IndexPart<I>(name_p, total_index_p, level_index_p) {};
         public:
             virtual const SuperSector<I>* parent() const = 0;
+            virtual SuperSector<I>* as_super() = 0;
             virtual const SuperSector<I>* as_super() const = 0;
             virtual const SuperSector<I>* super() const = 0;
             virtual const bool has_sub() const = 0;
@@ -51,11 +56,14 @@ namespace mrio {
         protected:
             I subindex_; ///< index in parent sector
             const SuperSector<I>* parent_;
-            SubSector(const string& name, const I& total_index, const I& level_index, const SuperSector<I>* parent, const I& subindex)
-                : Sector<I>(name, total_index, level_index), parent_(parent), subindex_(subindex) {};
+            SubSector(const string& name_p, const I& total_index_p, const I& level_index_p, const SuperSector<I>* parent_p, const I& subindex_p)
+                : Sector<I>(name_p, total_index_p, level_index_p), parent_(parent_p), subindex_(subindex_p) {};
         public:
             const SuperSector<I>* super() const override {
                 return parent_;
+            };
+            SuperSector<I>* as_super() override {
+                return nullptr;
             };
             const SuperSector<I>* as_super() const override {
                 return nullptr;
@@ -73,8 +81,8 @@ namespace mrio {
         protected:
             vector<SubSector<I>*> sub_;
             vector<SuperRegion<I>*> regions_;
-            SuperSector(const string& name, const I& total_index, const I& level_index)
-                : Sector<I>(name, total_index, level_index) {};
+            SuperSector(const string& name_p, const I& total_index_p, const I& level_index_p)
+                : Sector<I>(name_p, total_index_p, level_index_p) {};
         public:
             const vector<SuperRegion<I>*>& regions() const {
                 return regions_;
@@ -83,6 +91,9 @@ namespace mrio {
                 return sub_;
             };
             const SuperSector<I>* super() const override {
+                return this;
+            };
+            SuperSector<I>* as_super() override {
                 return this;
             };
             const SuperSector<I>* as_super() const override {
@@ -100,10 +111,11 @@ namespace mrio {
     template<typename I> class Region : public IndexPart<I> {
             friend class IndexSet<I>;
         protected:
-            Region(const string& name, const I& total_index, const I& level_index)
-                : IndexPart<I>(name, total_index, level_index) {};
+            Region(const string& name_p, const I& total_index_p, const I& level_index_p)
+                : IndexPart<I>(name_p, total_index_p, level_index_p) {};
         public:
             virtual const SuperRegion<I>* parent() const = 0;
+            virtual SuperRegion<I>* as_super() = 0;
             virtual const SuperRegion<I>* as_super() const = 0;
             virtual const SuperRegion<I>* super() const = 0;
             virtual const bool has_sub() const = 0;
@@ -113,11 +125,14 @@ namespace mrio {
         protected:
             I subindex_; ///< index in parent sector
             const SuperRegion<I>* parent_;
-            SubRegion(const string& name, const I& total_index, const I& level_index, const SuperRegion<I>* parent, const I& subindex)
-                : Region<I>(name, total_index, level_index), parent_(parent), subindex_(subindex) {};
+            SubRegion(const string& name_p, const I& total_index_p, const I& level_index_p, const SuperRegion<I>* parent_p, const I& subindex_p)
+                : Region<I>(name_p, total_index_p, level_index_p), parent_(parent_p), subindex_(subindex_p) {};
         public:
             const SuperRegion<I>* super() const override {
                 return parent_;
+            };
+            SuperRegion<I>* as_super() override {
+                return nullptr;
             };
             const SuperRegion<I>* as_super() const override {
                 return nullptr;
@@ -134,8 +149,8 @@ namespace mrio {
         protected:
             vector<SubRegion<I>*> sub_;
             vector<SuperSector<I>*> sectors_;
-            SuperRegion(const string& name, const I& total_index, const I& level_index)
-                : Region<I>(name, total_index, level_index) {};
+            SuperRegion(const string& name_p, const I& total_index_p, const I& level_index_p)
+                : Region<I>(name_p, total_index_p, level_index_p) {};
         public:
             const vector<SuperSector<I>*>& sectors() const {
                 return sectors_;
@@ -144,6 +159,9 @@ namespace mrio {
                 return sub_;
             };
             const SuperRegion<I>* super() const override {
+                return this;
+            };
+            SuperRegion<I>* as_super() override {
                 return this;
             };
             const SuperRegion<I>* as_super() const override {
@@ -180,8 +198,8 @@ namespace mrio {
                     typename vector<SuperRegion<I>*>::const_iterator superregion_it;
                     typename vector<SubSector<I>*>::const_iterator subsector_it;
                     typename vector<SubRegion<I>*>::const_iterator subregion_it;
-                    total_iterator(const IndexSet& index_set)
-                        : index_set(index_set), index(0) {
+                    total_iterator(const IndexSet& index_set_p)
+                        : index_set(index_set_p), index(0) {
                     };
                 public:
                     struct Index {
@@ -249,7 +267,7 @@ namespace mrio {
                 protected:
                     const IndexSet& index_set;
                 public:
-                    TotalIndices(const IndexSet& index_set) : index_set(index_set) {};
+                    TotalIndices(const IndexSet& index_set_p) : index_set(index_set_p) {};
                     total_iterator begin() const {
                         return index_set.tbegin();
                     };
@@ -264,7 +282,7 @@ namespace mrio {
                     const IndexSet* parent;
                     typename vector<SuperSector<I>*>::const_iterator sector_it;
                     typename vector<SuperRegion<I>*>::const_iterator region_it;
-                    super_iterator(const IndexSet* parent) : parent(parent) {};
+                    super_iterator(const IndexSet* parent_p) : parent(parent_p) {};
                 public:
                     struct Index {
                         const SuperSector<I>* sector;
@@ -315,7 +333,7 @@ namespace mrio {
                 protected:
                     const IndexSet& index_set;
                 public:
-                    SuperIndices(const IndexSet& index_set) : index_set(index_set) {};
+                    SuperIndices(const IndexSet& index_set_p) : index_set(index_set_p) {};
                     super_iterator begin() const {
                         return index_set.sbegin();
                     };
@@ -364,12 +382,12 @@ namespace mrio {
             SuperSector<I>* add_sector(const string& name);
             SuperRegion<I>* add_region(const string& name);
             void add_index(const string& sector_name, const string& region_name);
-            void add_index(SuperSector<I>* sector, SuperRegion<I>* region);
+            void add_index(SuperSector<I>* sector_p, SuperRegion<I>* region_p);
             void rebuild_indices();
-            inline const I& at(const Sector<I>* sector, const Region<I>* region) const {
-                assert(!sector->has_sub());
-                assert(!region->has_sub());
-                return indices_.at(*sector * total_regions_count_ + *region);
+            inline const I& at(const Sector<I>* sector_p, const Region<I>* region_p) const {
+                assert(!sector_p->has_sub());
+                assert(!region_p->has_sub());
+                return indices_.at(*sector_p * total_regions_count_ + *region_p);
             };
             inline const I& at(const string& sector_name, const string& region_name) const {
                 const Sector<I>* sector_ = sector(sector_name);
@@ -378,12 +396,12 @@ namespace mrio {
                 assert(!region_->has_sub());
                 return indices_.at(*sector_ * total_regions_count_ + *region_);
             };
-            inline const I& operator()(const Sector<I>* sector, const Region<I>* region) const noexcept {
-                assert(*sector * total_regions_count_ + *region >= 0);
-                assert(*sector * total_regions_count_ + *region < indices_.size());
-                assert(!sector->has_sub());
-                assert(!region->has_sub());
-                return indices_[*sector * total_regions_count_ + *region];
+            inline const I& operator()(const Sector<I>* sector_p, const Region<I>* region_p) const noexcept {
+                assert(*sector_p * total_regions_count_ + *region_p >= 0);
+                assert(*sector_p * total_regions_count_ + *region_p < indices_.size());
+                assert(!sector_p->has_sub());
+                assert(!region_p->has_sub());
+                return indices_[*sector_p * total_regions_count_ + *region_p];
             };
             void insert_subsectors(const string& name, const vector<string>& newsubsectors);
             void insert_subregions(const string& name, const vector<string>& newsubregions);
@@ -396,10 +414,10 @@ namespace mrio {
              * @param region Region (from disaggregated IndexSet)
              * @return Reference to index (in this non-disaggregated IndexSet)
              */
-            inline const I& base(const SuperSector<I>* sector, const SuperRegion<I>* region) const noexcept {
-                assert(sector->level_index() * superregions_.size() + region->level_index() >= 0);
-                assert(sector->level_index() * superregions_.size() + region->level_index() < indices_.size());
-                return indices_[sector->level_index() * superregions_.size() + region->level_index()];
+            inline const I& base(const SuperSector<I>* sector_p, const SuperRegion<I>* region_p) const noexcept {
+                assert(sector_p->level_index() * superregions_.size() + region_p->level_index() >= 0);
+                assert(sector_p->level_index() * superregions_.size() + region_p->level_index() < indices_.size());
+                return indices_[sector_p->level_index() * superregions_.size() + region_p->level_index()];
             };
     };
 }

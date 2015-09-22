@@ -98,7 +98,7 @@ namespace mrio {
             void adjust(const unsigned char& d);
 
         public:
-            Disaggregation(const Table<T, I>* basetable);
+            Disaggregation(const Table<T, I>* basetable_p);
             virtual ~Disaggregation();
             void refine();
             void read_proxy_file(const string& filename);

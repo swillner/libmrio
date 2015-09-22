@@ -6,7 +6,11 @@
 #include <vector>
 #include <limits>
 #include <deque>
+#ifdef DEBUG
 #include <cassert>
+#else
+#define assert(a) {}
+#endif
 
 using namespace std;
 
@@ -27,8 +31,8 @@ namespace mrio {
 
         public:
             Table() {};
-            Table(const IndexSet<I>& index_set, const T default_value = numeric_limits<T>::signaling_NaN()) : index_set_(index_set) {
-                data.resize(index_set_.size() * index_set_.size(), default_value);
+            Table(const IndexSet<I>& index_set_p, const T default_value_p = numeric_limits<T>::signaling_NaN()) : index_set_(index_set_p) {
+                data.resize(index_set_.size() * index_set_.size(), default_value_p);
             };
             inline const IndexSet<I>& index_set() const {
                 return index_set_;
