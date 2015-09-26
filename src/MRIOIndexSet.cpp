@@ -29,7 +29,7 @@ SuperSector<I>* IndexSet<I>::add_sector(const string& name) {
         indices_.clear();
         SuperSector<I>* s = new SuperSector<I>(name, supersectors_.size(), supersectors_.size());
         supersectors_.emplace_back(s);
-        sectors_map.insert(make_pair(name, s));
+        sectors_map.emplace(name, s);
         total_sectors_count_++;
         return s;
     } else {
@@ -47,7 +47,7 @@ SuperRegion<I>* IndexSet<I>::add_region(const string& name) {
         indices_.clear();
         SuperRegion<I>* r = new SuperRegion<I>(name, superregions_.size(), superregions_.size());
         superregions_.emplace_back(r);
-        regions_map.insert(make_pair(name, r));
+        regions_map.emplace(name, r);
         total_regions_count_++;
         return r;
     } else {
@@ -188,7 +188,7 @@ void IndexSet<I>::insert_subsectors(const string& name, const vector<string>& ne
     I subindex = 0;
     for (const auto& sub_name : newsubsectors) {
         SubSector<I>* sub = new SubSector<I>(sub_name, total_index, level_index, super, subindex);
-        sectors_map.insert(make_pair(sub_name, sub));
+        sectors_map.emplace(sub_name, sub);
         subsectors_.emplace_back(sub);
         super->sub_.push_back(sub);
         total_index++;
@@ -227,7 +227,7 @@ void IndexSet<I>::insert_subregions(const string& name, const vector<string>& ne
     I subindex = 0;
     for (const auto& sub_name : newsubregions) {
         SubRegion<I>* sub = new SubRegion<I>(sub_name, total_index, level_index, super, subindex);
-        regions_map.insert(make_pair(sub_name, sub));
+        regions_map.emplace(sub_name, sub);
         subregions_.emplace_back(sub);
         super->sub_.push_back(sub);
         total_index++;
