@@ -85,13 +85,13 @@ namespace mrio {
             };
 
             const Table<T, I>* basetable;
-            ProxyData* proxies[PROXY_COUNT];
-            ProxyData* proxy_sums[PROXY_COUNT];
+            unique_ptr<ProxyData> proxies[PROXY_COUNT];
+            unique_ptr<ProxyData> proxy_sums[PROXY_COUNT];
 
             // only needed during actual disaggregation
-            mrio::Table<T, I>* last_table; // table in disaggregation used for accessing d-1 values
-            mrio::Table<T, I>* table;
-            mrio::Table<unsigned char, I>* quality;
+            unique_ptr<mrio::Table<T, I>> last_table; // table in disaggregation used for accessing d-1 values
+            unique_ptr<mrio::Table<T, I>> table;
+            unique_ptr<mrio::Table<unsigned char, I>> quality;
 
             const Sector<I>* readSector(istringstream& ss);
             const Region<I>* readRegion(istringstream& ss);
@@ -106,7 +106,7 @@ namespace mrio {
 
         public:
             Disaggregation(const Table<T, I>* basetable_p);
-            virtual ~Disaggregation();
+            virtual ~Disaggregation() {};
             void refine();
             void read_proxy_file(const string& filename);
             void read_disaggregation_file(const string& filename);

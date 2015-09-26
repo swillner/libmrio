@@ -19,24 +19,7 @@ using std::exception;
 
 template<typename T, typename I>
 Disaggregation<T, I>::Disaggregation(const mrio::Table<T, I>* basetable_p) : basetable(basetable_p) {
-    table = new Table<T, I>(*basetable);
-    for (unsigned char j = 0; j < PROXY_COUNT; j++) {
-        proxies[j] = nullptr;
-        proxy_sums[j] = nullptr;
-    }
-}
-
-template<typename T, typename I>
-Disaggregation<T, I>::~Disaggregation() {
-    for (unsigned char j = 0; j < PROXY_COUNT; j++) {
-        if (proxies[j]) {
-            delete proxies[j];
-        }
-        if (proxy_sums[j]) {
-            delete proxy_sums[j];
-        }
-    }
-    delete table;
+    table.reset(new Table<T, I>(*basetable));
 }
 
 static inline const string readStr(istringstream& ss) {
@@ -203,8 +186,8 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                 case LEVEL_GDP_SUBREGION_2: {
                         const SubRegion<I>* r_lambda = readSubregion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(subregions_count);
-                            proxy_sums[d] = new ProxyData(regions_count);
+                            proxies[d].reset(new ProxyData(subregions_count));
+                            proxy_sums[d].reset(new ProxyData(regions_count));
                         }
                         (*proxies[d])(r_lambda) = readT(ss);
                         (*proxy_sums[d])(r_lambda->parent()) = readT_optional(ss);
@@ -214,8 +197,8 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                         const SubSector<I>* i_mu = readSubsector(ss);
                         const Region<I>* r = readRegion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(subsectors_count, regions_count);
-                            proxy_sums[d] = new ProxyData(sectors_count, regions_count);
+                            proxies[d].reset(new ProxyData(subsectors_count, regions_count));
+                            proxy_sums[d].reset(new ProxyData(sectors_count, regions_count));
                         }
                         (*proxies[d])(i_mu, r) = readT(ss);
                         (*proxy_sums[d])(i_mu->parent(), r) = readT_optional(ss);
@@ -225,8 +208,8 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                         const SubSector<I>* i_mu = readSubsector(ss);
                         const SubRegion<I>* r_lambda = readSubregion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(subsectors_count, subregions_count);
-                            proxy_sums[d] = new ProxyData(sectors_count, regions_count);
+                            proxies[d].reset(new ProxyData(subsectors_count, subregions_count));
+                            proxy_sums[d].reset(new ProxyData(sectors_count, regions_count));
                         }
                         (*proxies[d])(i_mu, r_lambda) = readT(ss);
                         (*proxy_sums[d])(i_mu->parent(), r_lambda->parent()) = readT_optional(ss);
@@ -236,7 +219,7 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                         const SubSector<I>* i_mu = readSubsector(ss);
                         const Region<I>* s = readRegion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(subsectors_count, regions_count);
+                            proxies[d].reset(new ProxyData(subsectors_count, regions_count));
                         }
                         (*proxies[d])(i_mu, s) = readT(ss);
                     }
@@ -245,7 +228,7 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                         const Sector<I>* j = readSector(ss);
                         const SubRegion<I>* r_lambda = readSubregion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(sectors_count, subregions_count);
+                            proxies[d].reset(new ProxyData(sectors_count, subregions_count));
                         }
                         (*proxies[d])(j, r_lambda) = readT(ss);
                     }
@@ -254,7 +237,7 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                         const SubSector<I>* i_mu = readSubsector(ss);
                         const SubRegion<I>* r_lambda = readSubregion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(subsectors_count, subregions_count);
+                            proxies[d].reset(new ProxyData(subsectors_count, subregions_count));
                         }
                         (*proxies[d])(i_mu, r_lambda) = readT(ss);
                     }
@@ -263,7 +246,7 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                         const SubSector<I>* i_mu = readSubsector(ss);
                         const SubRegion<I>* r_lambda = readSubregion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(subsectors_count, subregions_count);
+                            proxies[d].reset(new ProxyData(subsectors_count, subregions_count));
                         }
                         (*proxies[d])(i_mu, r_lambda) = readT(ss);
                     }
@@ -273,7 +256,7 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                         const Sector<I>* j = readSector(ss);
                         const Region<I>* s = readRegion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(subsectors_count, sectors_count, regions_count);
+                            proxies[d].reset(new ProxyData(subsectors_count, sectors_count, regions_count));
                         }
                         (*proxies[d])(i_mu, j, s) = readT(ss);
                     }
@@ -283,7 +266,7 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                         const Region<I>* s = readRegion(ss);
                         const SubRegion<I>* r_lambda = readSubregion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(sectors_count, regions_count, subregions_count);
+                            proxies[d].reset(new ProxyData(sectors_count, regions_count, subregions_count));
                         }
                         (*proxies[d])(j, s, r_lambda) = readT(ss);
                     }
@@ -293,7 +276,7 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                         const SubSector<I>* i_mu2 = readSubsector(ss);
                         const SubRegion<I>* r_lambda = readSubregion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(subsectors_count, subsectors_count, subregions_count);
+                            proxies[d].reset(new ProxyData(subsectors_count, subsectors_count, subregions_count));
                         }
                         (*proxies[d])(i_mu1, i_mu2, r_lambda) = readT(ss);
                     }
@@ -303,7 +286,7 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                         const SubRegion<I>* r_lambda = readSubregion(ss);
                         const Region<I>* s = readRegion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(subsectors_count, subregions_count, regions_count);
+                            proxies[d].reset(new ProxyData(subsectors_count, subregions_count, regions_count));
                         }
                         (*proxies[d])(i_mu, r_lambda, s) = readT(ss);
                     }
@@ -313,7 +296,7 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                         const SubSector<I>* i_mu = readSubsector(ss);
                         const SubRegion<I>* r_lambda = readSubregion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(sectors_count, subsectors_count, subregions_count);
+                            proxies[d].reset(new ProxyData(sectors_count, subsectors_count, subregions_count));
                         }
                         (*proxies[d])(j, i_mu, r_lambda) = readT(ss);
                     }
@@ -323,7 +306,7 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                         const SubRegion<I>* r_lambda1 = readSubregion(ss);
                         const SubRegion<I>* r_lambda2 = readSubregion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(subsectors_count, subregions_count, subregions_count);
+                            proxies[d].reset(new ProxyData(subsectors_count, subregions_count, subregions_count));
                         }
                         (*proxies[d])(i_mu, r_lambda1, r_lambda2) = readT(ss);
                     }
@@ -339,7 +322,7 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                         const SubSector<I>* i_mu2 = readSubsector(ss);
                         const SubRegion<I>* r_lambda2 = readSubregion(ss);
                         if (!proxies[d]) {
-                            proxies[d] = new ProxyData(subsectors_count, subregions_count, subsectors_count, subregions_count);
+                            proxies[d].reset(new ProxyData(subsectors_count, subregions_count, subsectors_count, subregions_count));
                         }
                         (*proxies[d])(i_mu1, r_lambda1, i_mu2, r_lambda2) = readT(ss);
                     }
@@ -364,8 +347,8 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
 
 template<typename T, typename I>
 void Disaggregation<T, I>::refine() {
-    last_table = new Table<T, I>(*table);
-    quality = new Table<unsigned char, I>(table->index_set(), 0);
+    last_table.reset(new Table<T, I>(*table));
+    quality.reset(new Table<unsigned char, I>(table->index_set(), 0));
 
     // apply actual algorithm
     for (unsigned char d = 1; d < PROXY_COUNT; d++) {
@@ -383,8 +366,8 @@ void Disaggregation<T, I>::refine() {
     }
 
     // cleanup
-    delete quality;
-    delete last_table;
+    quality.reset();
+    last_table.reset();
 }
 
 template<typename T, typename I>
