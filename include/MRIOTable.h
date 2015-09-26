@@ -12,9 +12,12 @@
 #define assert(a) {}
 #endif
 
-using namespace std;
-
 namespace mrio {
+
+    using std::deque;
+    using std::istream;
+    using std::ostream;
+    using std::numeric_limits;
 
     template<typename T, typename I> class Table {
         protected:

@@ -5,12 +5,19 @@
 #include <sstream>
 #include <unordered_map>
 #include <limits>
-#include <cassert>
 #include <cmath>
-
-using namespace std;
+#ifdef DEBUG
+#include <cassert>
+#else
+#define assert(a) {}
+#endif
 
 namespace mrio {
+
+    using std::string;
+    using std::vector;
+    using std::istringstream;
+
     template<typename T, typename I> class Disaggregation {
         protected:
             enum {
@@ -82,9 +89,9 @@ namespace mrio {
             ProxyData* proxy_sums[PROXY_COUNT];
 
             // only needed during actual disaggregation
-            Table<T, I>* last_table; // table in disaggregation used for accessing d-1 values
-            Table<T, I>* table;
-            Table<unsigned char, I>* quality;
+            mrio::Table<T, I>* last_table; // table in disaggregation used for accessing d-1 values
+            mrio::Table<T, I>* table;
+            mrio::Table<unsigned char, I>* quality;
 
             const Sector<I>* readSector(istringstream& ss);
             const Region<I>* readRegion(istringstream& ss);

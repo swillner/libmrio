@@ -6,15 +6,19 @@
 #include <unordered_map>
 #include <set>
 #include <iostream>
+#include <memory>
 #ifdef DEBUG
 #include <cassert>
 #else
 #define assert(a) {}
 #endif
 
-using namespace std;
-
 namespace mrio {
+
+    using std::string;
+    using std::vector;
+    using std::unordered_map;
+    using std::unique_ptr;
 
     template<typename I> class IndexSet;
     template<typename I> class IndexPart {
@@ -182,20 +186,20 @@ namespace mrio {
             I total_sectors_count_;
             unordered_map<string, Sector<I>*> sectors_map;
             unordered_map<string, Region<I>*> regions_map;
-            vector<SuperSector<I>*> supersectors_;
-            vector<SuperRegion<I>*> superregions_;
-            vector<SubSector<I>*> subsectors_;
-            vector<SubRegion<I>*> subregions_;
+            vector<unique_ptr<SuperSector<I>>> supersectors_;
+            vector<unique_ptr<SuperRegion<I>>> superregions_;
+            vector<unique_ptr<SubSector<I>>> subsectors_;
+            vector<unique_ptr<SubRegion<I>>> subregions_;
             vector<I> indices_;
 
-            void readjust_pointers();
+            void copy_pointers(const IndexSet<I>& other);
         public:
             class total_iterator {
                 private:
                     const IndexSet& index_set;
                     I index;
                     typename vector<SuperSector<I>*>::const_iterator supersector_it;
-                    typename vector<SuperRegion<I>*>::const_iterator superregion_it;
+                    typename vector<unique_ptr<SuperRegion<I>>>::const_iterator superregion_it;
                     typename vector<SubSector<I>*>::const_iterator subsector_it;
                     typename vector<SubRegion<I>*>::const_iterator subregion_it;
                     total_iterator(const IndexSet& index_set_p)
@@ -246,7 +250,7 @@ namespace mrio {
                     const Index operator*() const {
                         return {
                             (subsector_it == (*supersector_it)->sub().end()) ? static_cast<Sector<I>*>(*supersector_it) : static_cast<Sector<I>*>(*subsector_it),
-                            (subregion_it == (*superregion_it)->sub().end()) ? static_cast<Region<I>*>(*superregion_it) : static_cast<Region<I>*>(*subregion_it),
+                            (subregion_it == (*superregion_it)->sub().end()) ? static_cast<Region<I>*>(superregion_it->get()) : static_cast<Region<I>*>(*subregion_it),
                             index
                         };
                     };
@@ -281,7 +285,7 @@ namespace mrio {
                 private:
                     const IndexSet* parent;
                     typename vector<SuperSector<I>*>::const_iterator sector_it;
-                    typename vector<SuperRegion<I>*>::const_iterator region_it;
+                    typename vector<unique_ptr<SuperRegion<I>>>::const_iterator region_it;
                     super_iterator(const IndexSet* parent_p) : parent(parent_p) {};
                 public:
                     struct Index {
@@ -313,7 +317,7 @@ namespace mrio {
                         return *this;
                     };
                     const Index operator*() const {
-                        return { *sector_it, *region_it };
+                        return { *sector_it, region_it->get() };
                     };
                     const bool operator==(const super_iterator& rhs) const {
                         return (region_it == rhs.region_it && sector_it == rhs.sector_it)
@@ -357,16 +361,16 @@ namespace mrio {
             const I& total_sectors_count() const {
                 return total_sectors_count_;
             };
-            const vector<SuperSector<I>*>& supersectors() const {
+            const vector<unique_ptr<SuperSector<I>>>& supersectors() const {
                 return supersectors_;
             };
-            const vector<SuperRegion<I>*>& superregions() const {
+            const vector<unique_ptr<SuperRegion<I>>>& superregions() const {
                 return superregions_;
             };
-            const vector<SubSector<I>*>& subsectors() const {
+            const vector<unique_ptr<SubSector<I>>>& subsectors() const {
                 return subsectors_;
             };
-            const vector<SubRegion<I>*>& subregions() const {
+            const vector<unique_ptr<SubRegion<I>>>& subregions() const {
                 return subregions_;
             };
             const Sector<I>* sector(const string& name) const {

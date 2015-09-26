@@ -1,18 +1,31 @@
-#include "MRIOTable.h"
-#include "Disaggregation.h"
+#include <MRIOTable.h>
+#include <Disaggregation.h>
 #include <iostream>
 #include <deque>
 #include <stdexcept>
 #include <fstream>
-#include <cassert>
 #include <cstdlib>
 #include <stdlib.h>
 #include <argp.h>
+#ifdef DEBUG
+#include <cassert>
+#else
+#define assert(a) {}
+#endif
 
-using namespace std;
+using std::stof;
+using std::cout;
+using std::cerr;
+using std::endl;
+using std::flush;
+using std::runtime_error;
+using std::ifstream;
+using std::ofstream;
+using std::ostream;
+using std::exception;
 
 // Define types used in templates
-typedef unsigned short I; // Index type
+typedef unsigned int I; // Index type
 typedef float T; // Data type
 
 const char* argp_program_bug_address = "<sven.willner@pik-potsdam.de>";

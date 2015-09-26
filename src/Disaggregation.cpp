@@ -7,11 +7,18 @@
 #include <cstdlib>
 #include <functional>
 
-using namespace std;
 using namespace mrio;
+using std::runtime_error;
+using std::stoi;
+using std::stof;
+using std::to_string;
+using std::ifstream;
+using std::out_of_range;
+using std::stringstream;
+using std::exception;
 
 template<typename T, typename I>
-Disaggregation<T, I>::Disaggregation(const Table<T, I>* basetable_p) : basetable(basetable_p) {
+Disaggregation<T, I>::Disaggregation(const mrio::Table<T, I>* basetable_p) : basetable(basetable_p) {
     table = new Table<T, I>(*basetable);
     for (unsigned char j = 0; j < PROXY_COUNT; j++) {
         proxies[j] = nullptr;
@@ -415,12 +422,12 @@ void Disaggregation<T, I>::approximate(const unsigned char& d) {
         case LEVEL_GDP_SUBREGION_2:
 
             for (const auto& r : table->index_set().superregions()) {
-                if (std::isnan((*proxy_sums[d])(r))) {
+                if (std::isnan((*proxy_sums[d])(r.get()))) {
                     T sum = 0;
                     for (const auto& r_lambda : r->sub()) {
                         sum += (*proxies[d])(r_lambda);
                     }
-                    (*proxy_sums[d])(r) = sum;
+                    (*proxy_sums[d])(r.get()) = sum;
                 }
             }
             for (const auto& ir : table->index_set().super_indices) {
@@ -452,12 +459,12 @@ void Disaggregation<T, I>::approximate(const unsigned char& d) {
             for (const auto& i : table->index_set().supersectors()) {
                 if (i->has_sub()) {
                     for (const auto& r : i->regions()) {
-                        if (std::isnan((*proxy_sums[d])(i, r))) {
+                        if (std::isnan((*proxy_sums[d])(i.get(), r))) {
                             T sum = 0;
                             for (const auto& i_mu : i->sub()) {
                                 sum += (*proxies[d])(i_mu, r);
                             }
-                            (*proxy_sums[d])(i, r) = sum;
+                            (*proxy_sums[d])(i.get(), r) = sum;
                         }
                     }
                 }
@@ -492,14 +499,14 @@ void Disaggregation<T, I>::approximate(const unsigned char& d) {
                 if (i->has_sub()) {
                     for (const auto& r : i->regions()) {
                         if (r->has_sub()) {
-                            if (std::isnan((*proxy_sums[d])(i, r))) {
+                            if (std::isnan((*proxy_sums[d])(i.get(), r))) {
                                 T sum = 0;
                                 for (const auto& i_mu : i->sub()) {
                                     for (const auto& r_lambda : i->sub()) {
                                         sum += (*proxies[d])(i_mu, r_lambda);
                                     }
                                 }
-                                (*proxy_sums[d])(i, r) = sum;
+                                (*proxy_sums[d])(i.get(), r) = sum;
                             }
                         }
                     }
@@ -831,5 +838,5 @@ void Disaggregation<T, I>::adjust(const unsigned char& d) {
     }
 }
 
-template class Disaggregation<double, unsigned short>;
-template class Disaggregation<float, unsigned short>;
+template class Disaggregation<double, unsigned int>;
+template class Disaggregation<float, unsigned int>;

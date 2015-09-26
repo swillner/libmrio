@@ -2,28 +2,16 @@
 #include <limits>
 #include <algorithm>
 
-using namespace std;
 using namespace mrio;
+using std::runtime_error;
 
 template<typename I>
 void IndexSet<I>::clear() {
     sectors_map.clear();
     regions_map.clear();
-    for (auto& it : supersectors_) {
-        delete it;
-    }
     supersectors_.clear();
-    for (auto& it : superregions_) {
-        delete it;
-    }
     superregions_.clear();
-    for (auto& it : subsectors_) {
-        delete it;
-    }
     subsectors_.clear();
-    for (auto& it : subregions_) {
-        delete it;
-    }
     subregions_.clear();
     indices_.clear();
     size_ = 0;
@@ -40,7 +28,7 @@ SuperSector<I>* IndexSet<I>::add_sector(const string& name) {
     if (res == sectors_map.end()) {
         indices_.clear();
         SuperSector<I>* s = new SuperSector<I>(name, supersectors_.size(), supersectors_.size());
-        supersectors_.push_back(s);
+        supersectors_.emplace_back(s);
         sectors_map.insert(make_pair(name, s));
         total_sectors_count_++;
         return s;
@@ -58,7 +46,7 @@ SuperRegion<I>* IndexSet<I>::add_region(const string& name) {
     if (res == regions_map.end()) {
         indices_.clear();
         SuperRegion<I>* r = new SuperRegion<I>(name, superregions_.size(), superregions_.size());
-        superregions_.push_back(r);
+        superregions_.emplace_back(r);
         regions_map.insert(make_pair(name, r));
         total_regions_count_++;
         return r;
@@ -127,14 +115,9 @@ IndexSet<I>::IndexSet(const IndexSet<I>& other)
       total_sectors_count_(other.total_sectors_count_),
       sectors_map(other.sectors_map),
       regions_map(other.regions_map),
-      supersectors_(other.supersectors_),
-      superregions_(other.superregions_),
-      subsectors_(other.subsectors_),
-      subregions_(other.subregions_),
-      indices_(other.indices_),
       total_indices(*this),
       super_indices(*this) {
-    readjust_pointers();
+    copy_pointers(other);
 }
 
 template<typename I>
@@ -144,39 +127,38 @@ IndexSet<I>& IndexSet<I>::operator=(const IndexSet<I>& other) {
     total_sectors_count_ = other.total_sectors_count_;
     sectors_map = other.sectors_map;
     regions_map = other.regions_map;
-    supersectors_ = other.supersectors_;
-    superregions_ = other.superregions_;
-    subsectors_ = other.subsectors_;
-    subregions_ = other.subregions_;
-    indices_ = other.indices_;
-    readjust_pointers();
+    supersectors_.clear();
+    superregions_.clear();
+    subsectors_.clear();
+    subregions_.clear();
+    copy_pointers(other);
     return *this;
 }
 
 template<typename I>
-void IndexSet<I>::readjust_pointers() {
-    for (I it = 0; it < subsectors_.size(); it++) {
-        SubSector<I>* n = new SubSector<I>(*subsectors_[it]);
-        subsectors_[it] = n;
+void IndexSet<I>::copy_pointers(const IndexSet<I>& other) {
+    for (I it = 0; it < other.subsectors_.size(); it++) {
+        SubSector<I>* n = new SubSector<I>(*other.subsectors_[it]);
+        subsectors_.emplace_back(n);
         sectors_map.at(n->name) = n;
     }
-    for (I it = 0; it < subregions_.size(); it++) {
-        SubRegion<I>* n = new SubRegion<I>(*subregions_[it]);
-        subregions_[it] = n;
+    for (I it = 0; it < other.subregions_.size(); it++) {
+        SubRegion<I>* n = new SubRegion<I>(*other.subregions_[it]);
+        subregions_.emplace_back(n);
         regions_map.at(n->name) = n;
     }
-    for (I it = 0; it < supersectors_.size(); it++) {
-        SuperSector<I>* n = new SuperSector<I>(*supersectors_[it]);
-        supersectors_[it] = n;
+    for (I it = 0; it < other.supersectors_.size(); it++) {
+        SuperSector<I>* n = new SuperSector<I>(*other.supersectors_[it]);
+        supersectors_.emplace_back(n);
         sectors_map.at(n->name) = n;
         for (I it2 = 0; it2 < n->sub_.size(); it2++) {
             n->sub_[it2] = static_cast<SubSector<I>*>(sectors_map.at(n->sub_[it2]->name));
             n->sub_[it2]->parent_ = n;
         }
     }
-    for (I it = 0; it < superregions_.size(); it++) {
-        SuperRegion<I>* n = new SuperRegion<I>(*superregions_[it]);
-        superregions_[it] = n;
+    for (I it = 0; it < other.superregions_.size(); it++) {
+        SuperRegion<I>* n = new SuperRegion<I>(*other.superregions_[it]);
+        superregions_.emplace_back(n);
         regions_map.at(n->name) = n;
         for (I it2 = 0; it2 < n->sub_.size(); it2++) {
             n->sub_[it2] = static_cast<SubRegion<I>*>(regions_map.at(n->sub_[it2]->name));
@@ -186,12 +168,13 @@ void IndexSet<I>::readjust_pointers() {
             n->sectors_[it2] = static_cast<SuperSector<I>*>(sectors_map.at(n->sectors_[it2]->name));
         }
     }
-    for (I it = 0; it < supersectors_.size(); it++) {
-        SuperSector<I>* n = supersectors_[it];
+    for (I it = 0; it < other.supersectors_.size(); it++) {
+        SuperSector<I>* n = supersectors_[it].get();
         for (I it2 = 0; it2 < n->regions_.size(); it2++) {
             n->regions_[it2] = static_cast<SuperRegion<I>*>(regions_map.at(n->regions_[it2]->name));
         }
     }
+    rebuild_indices();
 }
 
 template<typename I>
@@ -206,7 +189,7 @@ void IndexSet<I>::insert_subsectors(const string& name, const vector<string>& ne
     for (const auto& sub_name : newsubsectors) {
         SubSector<I>* sub = new SubSector<I>(sub_name, total_index, level_index, super, subindex);
         sectors_map.insert(make_pair(sub_name, sub));
-        subsectors_.push_back(sub);
+        subsectors_.emplace_back(sub);
         super->sub_.push_back(sub);
         total_index++;
         level_index++;
@@ -245,7 +228,7 @@ void IndexSet<I>::insert_subregions(const string& name, const vector<string>& ne
     for (const auto& sub_name : newsubregions) {
         SubRegion<I>* sub = new SubRegion<I>(sub_name, total_index, level_index, super, subindex);
         regions_map.insert(make_pair(sub_name, sub));
-        subregions_.push_back(sub);
+        subregions_.emplace_back(sub);
         super->sub_.push_back(sub);
         total_index++;
         level_index++;
@@ -272,4 +255,4 @@ void IndexSet<I>::insert_subregions(const string& name, const vector<string>& ne
     rebuild_indices();
 }
 
-template class IndexSet<unsigned short>;
+template class IndexSet<unsigned int>;

@@ -1,23 +1,34 @@
 #include "MRIOTable.h"
 #include "MRIOIndexSet.h"
 #include <sstream>
-#include <cassert>
 #include <stdexcept>
 #include <cmath>
 #include <iostream>
 #include <algorithm>
 #include <cstdlib>
 #include <iomanip>
+#ifdef DEBUG
+#include <cassert>
+#else
+#define assert(a) {}
+#endif
 
-using namespace std;
 using namespace mrio;
+using std::streambuf;
+using std::runtime_error;
+using std::stringstream;
+using std::istringstream;
+using std::stof;
+using std::exception;
+using std::endl;
+using std::ostream;
 
 template<typename T, typename I>
 const T Table<T, I>::sum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
     T res = 0;
     if (i == nullptr) {
         for (auto& i_ : index_set_.supersectors()) {
-            res += sum(i_, r, j, s);
+            res += sum(i_.get(), r, j, s);
         }
     } else if (i->has_sub()) {
         for (auto& i_ : i->as_super()->sub()) {
@@ -33,7 +44,7 @@ const T Table<T, I>::sum(const Sector<I>* i, const Region<I>* r, const Sector<I>
         }
     } else if (j == nullptr) {
         for (auto& j_ : index_set_.supersectors()) {
-            res += sum(i, r, j_, s);
+            res += sum(i, r, j_.get(), s);
         }
     } else if (j->has_sub()) {
         for (auto& j_ : j->as_super()->sub()) {
@@ -58,7 +69,7 @@ const T Table<T, I>::basesum(const SuperSector<I>* i, const SuperRegion<I>* r, c
     T res = 0;
     if (i == nullptr) {
         for (auto& i_ : index_set_.supersectors()) {
-            res += basesum(i_, r, j, s);
+            res += basesum(i_.get(), r, j, s);
         }
     } else if (r == nullptr) {
         for (auto& r_ : i->regions()) {
@@ -66,7 +77,7 @@ const T Table<T, I>::basesum(const SuperSector<I>* i, const SuperRegion<I>* r, c
         }
     } else if (j == nullptr) {
         for (auto& j_ : index_set_.supersectors()) {
-            res += basesum(i, r, j_, s);
+            res += basesum(i, r, j_.get(), s);
         }
     } else if (s == nullptr) {
         for (auto& s_ : j->regions()) {
@@ -133,9 +144,6 @@ void Table<T, I>::read_indices_from_csv(istream& indicesstream) {
     I l = 0;
     try {
         while (readline(indicesstream, cols, 2)) {
-            if (l == numeric_limits<I>::max()) {
-                throw runtime_error("Too many rows");
-            }
             l++;
             index_set_.add_index(cols[1], cols[0]);
         }
@@ -201,10 +209,10 @@ void Table<T, I>::write_to_csv(ostream& outstream) const {
         for (const auto& col : index_set_.total_indices) {
             outstream << at(row.index, col.index) << ",";
         }
-        outstream.seekp(-1, ios_base::end);
+        outstream.seekp(-1, std::ios_base::end);
         outstream << endl;
     }
-    outstream.seekp(-1, ios_base::end);
+    outstream.seekp(-1, std::ios_base::end);
 }
 
 template<typename T, typename I>
@@ -237,7 +245,7 @@ void Table<T, I>::read_from_mrio(istream& instream, const T& threshold) {
         I sector_index, region_index;
         instream.read((char*)&sector_index, sizeof(I));
         instream.read((char*)&region_index, sizeof(I));
-        index_set_.add_index(index_set_.supersectors()[sector_index], index_set_.superregions()[region_index]);
+        index_set_.add_index(index_set_.supersectors()[sector_index].get(), index_set_.superregions()[region_index].get());
     }
     index_set_.rebuild_indices();
     data.resize(index_set_.size() * index_set_.size(), 0);
@@ -515,6 +523,6 @@ void Table<T, I>::insert_subregions(const string& name, const vector<string>& su
     debug_out();
 }
 
-template class Table<float, unsigned short>;
-template class Table<double, unsigned short>;
-template class Table<unsigned char, unsigned short>;
+template class Table<float, unsigned int>;
+template class Table<double, unsigned int>;
+template class Table<unsigned char, unsigned int>;
