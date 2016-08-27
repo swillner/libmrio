@@ -294,13 +294,15 @@ void Table<T, I>::read_from_netcdf(const string& filename, const T& threshold) {
     }
 
     index_set_.rebuild_indices();
-    data.resize(index_set_.size() * index_set_.size(), 0);
-    file.getVar("flows").getVar(&data[0]);
-    for (auto& d : data) {
+    vector<T> data_(index_set_.size() * index_set_.size());
+    //data.resize(index_set_.size() * index_set_.size(), 0);
+    file.getVar("flows").getVar(&data_[0]);
+    for (auto& d : data_) {
         if (d <= threshold) {
             d = 0;
         }
     }
+    data = deque<T>(data_.begin(), data_.end());
 }
 
 template <typename T, typename I>
