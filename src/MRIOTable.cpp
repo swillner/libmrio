@@ -287,22 +287,41 @@ void Table<T, I>::read_from_netcdf(const string& filename, const T& threshold) {
         }
     }
 
-    for (const auto& sector : index_set_.supersectors()) {
-        for (const auto& region : index_set_.superregions()) {
-            index_set_.add_index(sector.get(), region.get());
-        }
-    }
-
-    index_set_.rebuild_indices();
-    vector<T> data_(index_set_.size() * index_set_.size());
-    //data.resize(index_set_.size() * index_set_.size(), 0);
+    vector<T> data_(regions_count * sectors_count * regions_count * sectors_count);
     file.getVar("flows").getVar(&data_[0]);
-    for (auto& d : data_) {
-        if (d <= threshold) {
-            d = 0;
+    if (file.getVar("flows").getDims()[0].getName() == "sector") {
+        data.resize(regions_count * sectors_count * regions_count * sectors_count);
+        typename deque<T>::iterator d = data.begin();
+        for (const auto& region_from : index_set_.superregions()) {
+            for (const auto& sector_from : index_set_.supersectors()) {
+                index_set_.add_index(sector_from.get(), region_from.get());
+                for (const auto& region_to : index_set_.superregions()) {
+                    for (const auto& sector_to : index_set_.supersectors()) {
+                        const T& d_ = data_[((*sector_from * regions_count + *region_from) * sectors_count + *sector_to) * regions_count + *region_to];
+                        if (d_ > threshold) {
+                            *d = d_;
+                        } else {
+                            *d = 0;
+                        }
+                        d++;
+                    }
+                }
+            }
         }
+    } else {
+        for (const auto& sector : index_set_.supersectors()) {
+            for (const auto& region : index_set_.superregions()) {
+                index_set_.add_index(sector.get(), region.get());
+            }
+        }
+        for (auto& d : data_) {
+            if (d <= threshold) {
+                d = 0;
+            }
+        }
+        data = deque<T>(data_.begin(), data_.end());
     }
-    data = deque<T>(data_.begin(), data_.end());
+    index_set_.rebuild_indices();
 }
 
 template <typename T, typename I>
