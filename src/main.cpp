@@ -25,11 +25,13 @@ using std::ostream;
 using std::exception;
 
 // Define types used in templates
-typedef unsigned int I; // Index type
-typedef float T; // Data type
+typedef unsigned int I;  // Index type
+typedef float T;         // Data type
 
 const char* argp_program_bug_address = "<sven.willner@pik-potsdam.de>";
-static char doc[] = "Flexible algorithm for regional and sectoral disaggregation of multi-regional input-output tables.\n\
+const char* argp_program_version = "1.1.0";
+static char doc[] =
+        "Flexible algorithm for regional and sectoral disaggregation of multi-regional input-output tables.\n\
 Described in:\n\
     L. Wenz, S.N. Willner, A. Radebach, R. Bierkandt, J.C. Steckel, A. Levermann:\
  Regional and sectoral disaggregation of multi-regional input-output tables: a flexible algorithm\
@@ -55,7 +57,6 @@ static error_t parse_opt(int key, char* arg, struct argp_state* state) {
     switch (key) {
         case 't':
             args->threshold = stof(arg);
-            cout << args->threshold << endl;
             break;
 
         case ARGP_KEY_ARG:

@@ -3,12 +3,14 @@
 C++-Implementation of the flexible algorithm for regional and sectoral disaggregation of multi-regional input-output tables as described in:
 
 L. Wenz, S.N. Willner, A. Radebach, R. Bierkandt, J.C. Steckel, A. Levermann  
-**Regional and sectoral disaggregation of multi-regional input-output tables: a flexible algorithm**  
+**[Regional and sectoral disaggregation of multi-regional input-output tables: a flexible algorithm](http://www.pik-potsdam.de/~anders/publications/wenz_willner15.pdf)**  
 *Economic Systems Research* 27 (2015), [DOI: 10.1080/09535314.2014.987731](http://dx.doi.org/10.1080/09535314.2014.987731).
 
 It includes a library for handling heterogeneous MRIO tables with up to one level of hierarchy. If you want to use it and have trouble with it just drop me an [email](mailto:sven.willner@pik-potsdam.de).
 
-Only the levels used in the paper have been tested thoroughly yet! Code documentation to come soon.
+## Dependencies
+
+The implementation makes use of C++11 and the [https://github.com/Unidata/netcdf-cxx4](NetCDF-CXX4-library) (e.g. package `libnetcdf-c++4-dev` in Ubuntu/Debian).
 
 ## Compiling
 
@@ -38,6 +40,3 @@ CSV-file with the proxies. Column numbers depend on proxy level (as documented i
 Name of file to write disaggregated table to. It is given in CSV-format, rows and columns sorted by regions (subregions replacing original aggregated region) first, then sectors (subsectors replacing original aggregated sector).
 
 Additionally an optional threshold parameter for only considering basetable values greater than the threshold can be given using `-t THRESHOLD` or `-threshold=THRESHOLD`.
-
-Improvements such as different input/output-formats to come. Feel free to fork.
-
