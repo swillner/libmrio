@@ -166,7 +166,7 @@ void Table<T, I>::read_data_from_csv(istream& datastream, const T& threshold) {
     string line;
     I l = 0;
     try {
-        typename deque<T>::iterator d = data.begin();
+        typename vector<T>::iterator d = data.begin();
         for (l = 0; l < index_set_.size(); l++) {
             if (l == numeric_limits<I>::max()) {
                 throw runtime_error("Too many rows");
@@ -329,11 +329,11 @@ void Table<T, I>::read_from_netcdf(const string& filename, const T& threshold) {
     }
 
     // TODO also read heterogeneous MRIO tables
-    vector<T> data_(regions_count * sectors_count * regions_count * sectors_count);
-    file.getVar("flows").getVar(&data_[0]);
+    data.resize(regions_count * sectors_count * regions_count * sectors_count);
     if (file.getVar("flows").getDims()[0].getName() == "sector") {
-        data.resize(regions_count * sectors_count * regions_count * sectors_count);
-        typename deque<T>::iterator d = data.begin();
+        vector<T> data_(regions_count * sectors_count * regions_count * sectors_count);
+        file.getVar("flows").getVar(&data_[0]);
+        typename vector<T>::iterator d = data.begin();
         for (const auto& region_from : index_set_.superregions()) {
             for (const auto& sector_from : index_set_.supersectors()) {
                 index_set_.add_index(sector_from.get(), region_from.get());
@@ -351,18 +351,19 @@ void Table<T, I>::read_from_netcdf(const string& filename, const T& threshold) {
             }
         }
     } else {
+        file.getVar("flows").getVar(&data[0]);
         for (const auto& sector : index_set_.supersectors()) {
             for (const auto& region : index_set_.superregions()) {
                 index_set_.add_index(sector.get(), region.get());
             }
         }
-        for (auto& d : data_) {
+        for (auto& d : data) {
             if (d <= threshold) {
                 d = 0;
             }
         }
-        data = deque<T>(data_.begin(), data_.end());
     }
+
     index_set_.rebuild_indices();
 }
 
@@ -418,13 +419,7 @@ void Table<T, I>::write_to_netcdf(const string& filename) const {
     netCDF::NcVar flows_var = file.addVar("flows", netCDF::NcType::nc_FLOAT, { index_dim, index_dim });
     flows_var.setCompression(false, true, 7);
     //TODO flows_var.setFill<T>(true, std::numeric_limits<T>::quiet_NaN());
-
-    //vector<T> data_ = vector<T>(data.begin(), data.end());
-    for (const auto& row : index_set_.total_indices) {
-        for (const auto& col : index_set_.total_indices) {
-            flows_var.putVar({ row.index, col.index }, (const char*)&(*this)(row.index, col.index));
-        }
-    }
+    flows_var.putVar(&data[0]);
 }
 
 template <typename T, typename I>

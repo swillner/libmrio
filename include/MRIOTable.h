@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 #include <limits>
-#include <deque>
+#include <vector>
 #ifdef DEBUG
 #include <cassert>
 #else
@@ -14,14 +14,14 @@
 
 namespace mrio {
 
-using std::deque;
+using std::vector;
 using std::istream;
 using std::ostream;
 using std::numeric_limits;
 
 template<typename T, typename I> class Table {
   protected:
-    deque<T> data;
+    vector<T> data;
     IndexSet<I> index_set_;
 
     void read_indices_from_csv(istream& indicesstream);
@@ -112,7 +112,7 @@ template<typename T, typename I> class Table {
     void replace_table_from(const Table& other) {
         data = other.data;
     };
-    const deque<T>& raw_data() const {
+    const vector<T>& raw_data() const {
         return data;
     }
     void debug_out() const; // TODO
