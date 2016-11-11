@@ -1,27 +1,30 @@
 CPP_FILES := $(wildcard src/*.cpp)
 OBJ_FILES := $(patsubst src/%.cpp,bin/%.o,$(CPP_FILES))
+.SECONDARY: OBJ_FILES
 LD_FLAGS := -lstdc++ -Wl,--gc-sections -lnetcdf_c++4
-CC_FLAGS := -std=c++0x -I include/ -fdata-sections -ffunction-sections  -Wshadow
+CC_FLAGS := -std=c++0x -I include/ -fdata-sections -ffunction-sections -Wshadow
+
+all: fast
 
 fast: CC_FLAGS += -O3
 fast: gcc
+
+debug: CC_FLAGS += -g -DDEBUG
+debug: gcc
 
 gcc: CXX = g++
 gcc: makedir
 gcc: binaries
 
-debug: CC_FLAGS += -g -DDEBUG
-debug: gcc
-
 clean:
-	@rm -f $(OBJ_FILES) bin/disaggregation
+	@rm -f $(OBJ_FILES) mrio_disaggregate
 
 makedir:
 	@mkdir -p bin
 
-binaries: bin/disaggregation
+binaries: mrio_disaggregate
 
-bin/disaggregation: $(OBJ_FILES)
+mrio_disaggregate: $(OBJ_FILES)
 	@echo Linking to $@
 	@$(CXX) -o $@ $^ $(CC_FLAGS) $(LD_FLAGS)
 

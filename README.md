@@ -18,11 +18,11 @@ A makefile is provided, just use
 ```
 make
 ```
-and the binary can be found in the `bin` folder. Compiler has to support C++11, only tested with GCC.
+to create the `mrio_disaggregate` binary. Compiler has to support C++11, only tested with GCC.
 
 ## Usage
 
-`disaggregation` expects five filenames as parameters (example given under `examples/simple`):
+`mrio_disaggregate` expects five filenames as parameters (example given under `examples/simple`):
 
 1. Index file
 CSV-file with two columns: 1. region name; 2. sector name. Its rows correspond to the rows and columns of the basetable file.
