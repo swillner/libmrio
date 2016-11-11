@@ -328,42 +328,61 @@ void Table<T, I>::read_from_netcdf(const string& filename, const T& threshold) {
         }
     }
 
-    // TODO also read heterogeneous MRIO tables
-    data.resize(regions_count * sectors_count * regions_count * sectors_count);
-    if (file.getVar("flows").getDims()[0].getName() == "sector") {
-        vector<T> data_(regions_count * sectors_count * regions_count * sectors_count);
-        file.getVar("flows").getVar(&data_[0]);
-        typename vector<T>::iterator d = data.begin();
-        for (const auto& region_from : index_set_.superregions()) {
-            for (const auto& sector_from : index_set_.supersectors()) {
-                index_set_.add_index(sector_from.get(), region_from.get());
-                for (const auto& region_to : index_set_.superregions()) {
-                    for (const auto& sector_to : index_set_.supersectors()) {
-                        const T& d_ = data_[((*sector_from * regions_count + *region_from) * sectors_count + *sector_to) * regions_count + *region_to];
-                        if (d_ > threshold) {
-                            *d = d_;
-                        } else {
-                            *d = 0;
+    netCDF::NcDim index_dim = file.getDim("index");
+    if (index_dim.isNull()) {
+        data.resize(regions_count * sectors_count * regions_count * sectors_count);
+        if (file.getVar("flows").getDims()[0].getName() == "sector") {
+            vector<T> data_(regions_count * sectors_count * regions_count * sectors_count);
+            file.getVar("flows").getVar(&data_[0]);
+            typename vector<T>::iterator d = data.begin();
+            for (const auto& region_from : index_set_.superregions()) {
+                for (const auto& sector_from : index_set_.supersectors()) {
+                    index_set_.add_index(sector_from.get(), region_from.get());
+                    for (const auto& region_to : index_set_.superregions()) {
+                        for (const auto& sector_to : index_set_.supersectors()) {
+                            const T& d_ = data_[((*sector_from * regions_count + *region_from) * sectors_count + *sector_to) * regions_count + *region_to];
+                            if (d_ > threshold) {
+                                *d = d_;
+                            } else {
+                                *d = 0;
+                            }
+                            d++;
                         }
-                        d++;
                     }
+                }
+            }
+        } else {
+            for (const auto& sector : index_set_.supersectors()) {
+                for (const auto& region : index_set_.superregions()) {
+                    index_set_.add_index(sector.get(), region.get());
+                }
+            }
+            file.getVar("flows").getVar(&data[0]);
+            for (auto& d : data) {
+                if (d <= threshold) {
+                    d = 0;
                 }
             }
         }
     } else {
-        file.getVar("flows").getVar(&data[0]);
-        for (const auto& sector : index_set_.supersectors()) {
-            for (const auto& region : index_set_.superregions()) {
-                index_set_.add_index(sector.get(), region.get());
-            }
+        size_t index_size = index_dim.getSize();
+        netCDF::NcVar index_sector_var = file.getVar("index_sector");
+        vector<uint32_t> index_sector_val(index_size);
+        index_sector_var.getVar(&index_sector_val[0]);
+        netCDF::NcVar index_region_var = file.getVar("index_region");
+        vector<uint32_t> index_region_val(index_size);
+        index_region_var.getVar(&index_region_val[0]);
+        for (unsigned int i = 0; i < index_size; ++i) {
+            index_set_.add_index(index_set_.supersectors()[index_sector_val[i]].get(), index_set_.superregions()[index_region_val[i]].get());
         }
+        data.resize(index_size * index_size);
+        file.getVar("flows").getVar(&data[0]);
         for (auto& d : data) {
             if (d <= threshold) {
                 d = 0;
             }
         }
     }
-
     index_set_.rebuild_indices();
 }
 
@@ -418,7 +437,7 @@ void Table<T, I>::write_to_netcdf(const string& filename) const {
 
     netCDF::NcVar flows_var = file.addVar("flows", netCDF::NcType::nc_FLOAT, { index_dim, index_dim });
     flows_var.setCompression(false, true, 7);
-    //TODO flows_var.setFill<T>(true, std::numeric_limits<T>::quiet_NaN());
+    flows_var.setFill<T>(true, std::numeric_limits<T>::quiet_NaN());
     flows_var.putVar(&data[0]);
 }
 

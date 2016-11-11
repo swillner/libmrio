@@ -1,7 +1,7 @@
 CPP_FILES := $(wildcard src/*.cpp)
 OBJ_FILES := $(patsubst src/%.cpp,bin/%.o,$(CPP_FILES))
 .SECONDARY: OBJ_FILES
-LD_FLAGS := -lstdc++ -Wl,--gc-sections -lnetcdf_c++4
+LD_FLAGS := -lstdc++ -lnetcdf_c++4 -lnetcdf -Wl,--gc-sections
 CC_FLAGS := -std=c++0x -I include/ -fdata-sections -ffunction-sections -Wshadow
 
 all: fast
