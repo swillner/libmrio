@@ -46,6 +46,7 @@ template<typename T, typename I> class Table {
     const T basesum(const SuperSector<I>* i, const SuperRegion<I>* r, const SuperSector<I>* j, const SuperRegion<I>* s) const noexcept;
     void write_to_csv(ostream& os) const;
     void write_to_mrio(ostream& os) const;
+    void write_to_netcdf(const string& filename) const;
     void read_from_csv(istream& indicesstream, istream& datastream, const T& threshold);
     void read_from_mrio(istream& instream, const T& threshold);
     void read_from_netcdf(const string& filename, const T& threshold);

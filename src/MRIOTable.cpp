@@ -264,6 +264,47 @@ void Table<T, I>::read_from_mrio(istream& instream, const T& threshold) {
 }
 
 template <typename T, typename I>
+void Table<T, I>::write_to_mrio(ostream& outstream) const {
+    debug_out();
+    unsigned char c = sizeof(I);
+    outstream.write((const char*)&c, sizeof(c));
+    c = sizeof(T);
+    outstream.write((const char*)&c, sizeof(c));
+    outstream.write((const char*)&index_set_.total_sectors_count(), sizeof(I));
+    c = 0;
+    for (const auto& sector : index_set_.supersectors()) {
+        if (sector->has_sub()) {
+            for (const auto& subsector : sector->sub()) {
+                outstream.write(subsector->name.c_str(), subsector->name.size() + 1);
+            }
+        } else {
+            outstream.write(sector->name.c_str(), sector->name.size() + 1);
+        }
+    }
+    outstream.write((const char*)&index_set_.total_regions_count(), sizeof(I));
+    for (const auto& region : index_set_.superregions()) {
+        if (region->has_sub()) {
+            for (const auto& subregion : region->sub()) {
+                outstream.write(subregion->name.c_str(), subregion->name.size() + 1);
+            }
+        } else {
+            outstream.write(region->name.c_str(), region->name.size() + 1);
+        }
+    }
+
+    outstream.write((const char*)&index_set_.size(), sizeof(I));
+    for (const auto& row : index_set_.total_indices) {
+        outstream.write((const char*)&row.sector->total_index(), sizeof(I));
+        outstream.write((const char*)&row.region->total_index(), sizeof(I));
+    }
+    for (const auto& row : index_set_.total_indices) {
+        for (const auto& col : index_set_.total_indices) {
+            outstream.write((const char*)&(*this)(row.index, col.index), sizeof(T));
+        }
+    }
+}
+
+template <typename T, typename I>
 void Table<T, I>::read_from_netcdf(const string& filename, const T& threshold) {
     netCDF::NcFile file(filename, netCDF::NcFile::read);
 
@@ -287,6 +328,7 @@ void Table<T, I>::read_from_netcdf(const string& filename, const T& threshold) {
         }
     }
 
+    // TODO also read heterogeneous MRIO tables
     vector<T> data_(regions_count * sectors_count * regions_count * sectors_count);
     file.getVar("flows").getVar(&data_[0]);
     if (file.getVar("flows").getDims()[0].getName() == "sector") {
@@ -325,42 +367,62 @@ void Table<T, I>::read_from_netcdf(const string& filename, const T& threshold) {
 }
 
 template <typename T, typename I>
-void Table<T, I>::write_to_mrio(ostream& outstream) const {
+void Table<T, I>::write_to_netcdf(const string& filename) const {
     debug_out();
-    unsigned char c = sizeof(I);
-    outstream.write((const char*)&c, sizeof(c));
-    c = sizeof(T);
-    outstream.write((const char*)&c, sizeof(c));
-    outstream.write((const char*)&index_set_.total_sectors_count(), sizeof(I));
-    c = 0;
-    for (const auto& sector : index_set_.supersectors()) {
-        if (sector->has_sub()) {
-            for (const auto& subsector : sector->sub()) {
-                outstream.write(subsector->name.c_str(), subsector->name.size() + 1);
+    netCDF::NcFile file(filename, netCDF::NcFile::replace, netCDF::NcFile::nc4);
+
+    netCDF::NcDim sectors_dim = file.addDim("sector", index_set_.total_sectors_count());
+    {
+        netCDF::NcVar sectors_var = file.addVar("sector", netCDF::NcType::nc_STRING, { sectors_dim });
+        I i = 0;
+        for (const auto& sector : index_set_.supersectors()) {
+            if (sector->has_sub()) {
+                for (const auto& subsector : sector->sub()) {
+                    sectors_var.putVar({ i }, subsector->name);
+                    ++i;
+                }
+            } else {
+                sectors_var.putVar({ i }, sector->name);
+                ++i;
             }
-        } else {
-            outstream.write(sector->name.c_str(), sector->name.size() + 1);
-        }
-    }
-    outstream.write((const char*)&index_set_.total_regions_count(), sizeof(I));
-    for (const auto& region : index_set_.superregions()) {
-        if (region->has_sub()) {
-            for (const auto& subregion : region->sub()) {
-                outstream.write(subregion->name.c_str(), subregion->name.size() + 1);
-            }
-        } else {
-            outstream.write(region->name.c_str(), region->name.size() + 1);
         }
     }
 
-    outstream.write((const char*)&index_set_.size(), sizeof(I));
-    for (const auto& row : index_set_.total_indices) {
-        outstream.write((const char*)&row.sector->total_index(), sizeof(I));
-        outstream.write((const char*)&row.region->total_index(), sizeof(I));
+    netCDF::NcDim regions_dim = file.addDim("region", index_set_.total_regions_count());
+    {
+        netCDF::NcVar regions_var = file.addVar("region", netCDF::NcType::nc_STRING, { regions_dim });
+        I i = 0;
+        for (const auto& region : index_set_.superregions()) {
+            if (region->has_sub()) {
+                for (const auto& subregion : region->sub()) {
+                    regions_var.putVar({ i }, subregion->name);
+                    ++i;
+                }
+            } else {
+                regions_var.putVar({ i }, region->name);
+                ++i;
+            }
+        }
     }
+
+    netCDF::NcDim index_dim = file.addDim("index", index_set_.size());
+    {
+        netCDF::NcVar index_sector_var = file.addVar("index_sector", netCDF::NcType::nc_UINT, { index_dim });
+        netCDF::NcVar index_region_var = file.addVar("index_region", netCDF::NcType::nc_UINT, { index_dim });
+        for (const auto& index : index_set_.total_indices) {
+            index_sector_var.putVar({ index.index }, index.sector->total_index() );
+            index_region_var.putVar({ index.index }, index.region->total_index() );
+        }
+    }
+
+    netCDF::NcVar flows_var = file.addVar("flows", netCDF::NcType::nc_FLOAT, { index_dim, index_dim });
+    flows_var.setCompression(false, true, 7);
+    //TODO flows_var.setFill<T>(true, std::numeric_limits<T>::quiet_NaN());
+
+    //vector<T> data_ = vector<T>(data.begin(), data.end());
     for (const auto& row : index_set_.total_indices) {
         for (const auto& col : index_set_.total_indices) {
-            outstream.write((const char*)&(*this)(row.index, col.index), sizeof(T));
+            flows_var.putVar({ row.index, col.index }, (const char*)&(*this)(row.index, col.index));
         }
     }
 }
