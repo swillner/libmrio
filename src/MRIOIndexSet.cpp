@@ -1,6 +1,6 @@
 #include "MRIOIndexSet.h"
-#include <limits>
 #include <algorithm>
+#include <limits>
 
 using namespace mrio;
 using std::runtime_error;
