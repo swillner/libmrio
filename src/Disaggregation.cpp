@@ -7,56 +7,48 @@
 #include <stdexcept>
 #include <string>
 
-using namespace mrio;
-using std::runtime_error;
-using std::stoi;
-using std::stof;
-using std::to_string;
-using std::ifstream;
-using std::out_of_range;
-using std::stringstream;
-using std::exception;
+namespace mrio {
 
 template<typename T, typename I>
 Disaggregation<T, I>::Disaggregation(const mrio::Table<T, I>* basetable_p) : basetable(basetable_p) {
     table.reset(new Table<T, I>(*basetable));
 }
 
-static inline const string readStr(istringstream& ss) {
-    string res;
+static inline const std::string readStr(std::istringstream& ss) {
+    std::string res;
     if (!getline(ss, res, ',')) {
-        throw runtime_error("Not enough columns");
+        throw std::runtime_error("Not enough columns");
     }
     return res;
 }
 
 template<typename T, typename I>
-inline const I Disaggregation<T, I>::readI(istringstream& ss) {
-    return stoi(readStr(ss).c_str());
+inline const I Disaggregation<T, I>::readI(std::istringstream& ss) {
+    return std::stoi(readStr(ss).c_str());
 }
 
 template<typename T, typename I>
-inline const T Disaggregation<T, I>::readT(istringstream& ss) {
-    return stof(readStr(ss).c_str());
+inline const T Disaggregation<T, I>::readT(std::istringstream& ss) {
+    return std::stof(readStr(ss).c_str());
 }
 
 template<typename T, typename I>
-inline const T Disaggregation<T, I>::readT_optional(istringstream& ss) {
-    string str;
+inline const T Disaggregation<T, I>::readT_optional(std::istringstream& ss) {
+    std::string str;
     if (getline(ss, str, ',')) {
-        return stof(str.c_str());
+        return std::stof(str.c_str());
     } else {
-        return numeric_limits<T>::quiet_NaN();
+        return std::numeric_limits<T>::quiet_NaN();
     }
 }
 
 template<typename T, typename I>
-void Disaggregation<T, I>::read_disaggregation_file(const string& filename) {
-    ifstream file(filename);
+void Disaggregation<T, I>::read_disaggregation_file(const std::string& filename) {
+    std::ifstream file(filename);
     if (!file) {
-        throw runtime_error("Could not open disaggregation file");
+        throw std::runtime_error("Could not open disaggregation file");
     }
-    string line;
+    std::string line;
     int l = 0;
     try {
         while (getline(file, line)) {
@@ -64,106 +56,105 @@ void Disaggregation<T, I>::read_disaggregation_file(const string& filename) {
             if (line[0] == '#') {  // ignore comment lines
                 continue;
             }
-            istringstream ss(line);
-            string type = readStr(ss);
-            string name = readStr(ss);
+            std::istringstream ss(line);
+            std::string type = readStr(ss);
+            std::string name = readStr(ss);
             I cnt = readI(ss);
             if (cnt < 1) {
-                throw runtime_error("Invalid subsector/subregion count");
+                throw std::runtime_error("Invalid subsector/subregion count");
             }
-            vector<string> subs;
+            std::vector<std::string> subs;
             subs.reserve(cnt);
             for (I it = 0; it < cnt; it++) {
-                subs.push_back(name + to_string(it));
+                subs.push_back(name + std::to_string(it));
             }
             if (type == "sector") {
                 try {
                     table->insert_subsectors(name, subs);
-                } catch (out_of_range& ex) {
-                    throw runtime_error("Sector '" + name + "' not found");
+                } catch (std::out_of_range& ex) {
+                    throw std::runtime_error("Sector '" + name + "' not found");
                 }
             } else if (type == "region") {
                 try {
                     table->insert_subregions(name, subs);
-                } catch (out_of_range& ex) {
-                    throw runtime_error("Region '" + name + "' not found");
+                } catch (std::out_of_range& ex) {
+                    throw std::runtime_error("Region '" + name + "' not found");
                 }
             } else {
-                throw runtime_error("Unknown type");
+                throw std::runtime_error("Unknown type");
             }
         }
-    } catch (const runtime_error& ex) {
-        stringstream s;
-        s << ex.what();
-        s << " (in " << filename << ", line " << l << ")";
-        throw runtime_error(s.str());
-    } catch (const exception& ex) {
-        stringstream s;
-        s << "Could not parse number";
-        s << " (in " << filename << ", line " << l << ")";
-        throw runtime_error(s.str());
+    } catch (const std::runtime_error& ex) {
+        std::ostringstream s;
+        s << ex.what() << " (in " << filename << ", line " << l << ")";
+        throw std::runtime_error(s.str());
+    } catch (const std::exception& ex) {
+        std::ostringstream s;
+        s << "Could not parse number"
+          << " (in " << filename << ", line " << l << ")";
+        throw std::runtime_error(s.str());
     }
 }
 
 template<typename T, typename I>
-const Sector<I>* Disaggregation<T, I>::readSector(istringstream& ss) {
-    string str;
+const Sector<I>* Disaggregation<T, I>::readSector(std::istringstream& ss) {
+    std::string str;
     try {
         str = readStr(ss);
         return table->index_set().sector(str);
-    } catch (out_of_range& ex) {
-        throw runtime_error("Sector '" + str + "' not found");
+    } catch (std::out_of_range& ex) {
+        throw std::runtime_error("Sector '" + str + "' not found");
     }
 }
 
 template<typename T, typename I>
-const Region<I>* Disaggregation<T, I>::readRegion(istringstream& ss) {
-    string str;
+const Region<I>* Disaggregation<T, I>::readRegion(std::istringstream& ss) {
+    std::string str;
     try {
         str = readStr(ss);
         return table->index_set().region(str);
-    } catch (out_of_range& ex) {
-        throw runtime_error("Region '" + str + "' not found");
+    } catch (std::out_of_range& ex) {
+        throw std::runtime_error("Region '" + str + "' not found");
     }
 }
 
 template<typename T, typename I>
-const SubSector<I>* Disaggregation<T, I>::readSubsector(istringstream& ss) {
+const SubSector<I>* Disaggregation<T, I>::readSubsector(std::istringstream& ss) {
     const Sector<I>* sector = readSector(ss);
     const SuperSector<I>* supersector = sector->as_super();
     if (!supersector) {
-        throw runtime_error("Sector '" + sector->name + "' is not a super sector");
+        throw std::runtime_error("Sector '" + sector->name + "' is not a super sector");
     }
     I id = readI(ss);
     try {
         return supersector->sub().at(id);
-    } catch (out_of_range& ex) {
-        throw runtime_error("SubSector '" + sector->name + to_string(id) + "' not found");
+    } catch (std::out_of_range& ex) {
+        throw std::runtime_error("SubSector '" + sector->name + std::to_string(id) + "' not found");
     }
 }
 
 template<typename T, typename I>
-const SubRegion<I>* Disaggregation<T, I>::readSubregion(istringstream& ss) {
+const SubRegion<I>* Disaggregation<T, I>::readSubregion(std::istringstream& ss) {
     const Region<I>* region = readRegion(ss);
     const SuperRegion<I>* superregion = region->as_super();
     if (!superregion) {
-        throw runtime_error("Region '" + region->name + "' is not a super region");
+        throw std::runtime_error("Region '" + region->name + "' is not a super region");
     }
     I id = readI(ss);
     try {
         return superregion->sub().at(id);
-    } catch (out_of_range& ex) {
-        throw runtime_error("SubRegion '" + region->name + to_string(id) + "' not found");
+    } catch (std::out_of_range& ex) {
+        throw std::runtime_error("SubRegion '" + region->name + std::to_string(id) + "' not found");
     }
 }
 
 template<typename T, typename I>
-void Disaggregation<T, I>::read_proxy_file(const string& filename) {
-    ifstream file(filename);
+void Disaggregation<T, I>::read_proxy_file(const std::string& filename) {
+    std::ifstream file(filename);
     if (!file) {
-        throw runtime_error("Could not open proxy file");
+        throw std::runtime_error("Could not open proxy file");
     }
-    string line;
+    std::string line;
     int l = 0;
     const I& subsectors_count = table->index_set().subsectors().size();
     const I& subregions_count = table->index_set().subregions().size();
@@ -179,7 +170,7 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
             if (line[0] == '#') {
                 continue;
             }
-            istringstream ss(line);
+            std::istringstream ss(line);
             d = readI(ss);
             switch (d) {
                 case LEVEL_POPULATION_1:
@@ -301,7 +292,7 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                 case LEVEL_PETERS1_15:
                 case LEVEL_PETERS2_16:
                 case LEVEL_PETERS3_17:
-                    throw runtime_error("Levels 15, 16, 17 cannot be given explicitly");
+                    throw std::runtime_error("Levels 15, 16, 17 cannot be given explicitly");
                     break;
                 case LEVEL_EXACT_18: {
                     const SubSector<I>* i_mu1 = readSubsector(ss);
@@ -314,20 +305,20 @@ void Disaggregation<T, I>::read_proxy_file(const string& filename) {
                     (*proxies[d])(i_mu1, r_lambda1, i_mu2, r_lambda2) = readT(ss);
                 } break;
                 default:
-                    throw runtime_error("Unknown d-level");
+                    throw std::runtime_error("Unknown d-level");
                     break;
             }
         } while (getline(file, line));
-    } catch (const runtime_error& ex) {
-        stringstream s;
+    } catch (const std::runtime_error& ex) {
+        std::stringstream s;
         s << ex.what();
         s << " (in " << filename << ", line " << l << ")";
-        throw runtime_error(s.str());
-    } catch (const exception& ex) {
-        stringstream s;
+        throw std::runtime_error(s.str());
+    } catch (const std::exception& ex) {
+        std::stringstream s;
         s << "Could not parse number";
         s << " (in " << filename << ", line " << l << ")";
-        throw runtime_error(s.str());
+        throw std::runtime_error(s.str());
     }
 }
 
@@ -802,7 +793,7 @@ void Disaggregation<T, I>::approximate(const unsigned char& d) {
 
         default:
 
-            throw runtime_error("Unknown d-level");
+            throw std::runtime_error("Unknown d-level");
             break;
     }
 }
@@ -843,5 +834,6 @@ void Disaggregation<T, I>::adjust(const unsigned char& d) {
     }
 }
 
-template class Disaggregation<double, unsigned int>;
-template class Disaggregation<float, unsigned int>;
+template class Disaggregation<double, size_t>;
+template class Disaggregation<float, size_t>;
+}

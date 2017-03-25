@@ -18,15 +18,7 @@
     {}
 #endif
 
-using namespace mrio;
-using std::streambuf;
-using std::runtime_error;
-using std::stringstream;
-using std::istringstream;
-using std::stof;
-using std::exception;
-using std::endl;
-using std::ostream;
+namespace mrio {
 
 template<typename T, typename I>
 const T Table<T, I>::sum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
@@ -94,9 +86,9 @@ const T Table<T, I>::basesum(const SuperSector<I>* i, const SuperRegion<I>* r, c
     return res;
 }
 
-static inline bool readline(istream& stream, string* vars, unsigned char num_vars) {
-    istream::sentry s(stream, true);
-    streambuf* buf = stream.rdbuf();
+static inline bool readline(std::istream& stream, std::string* vars, unsigned char num_vars) {
+    std::istream::sentry s(stream, true);
+    std::streambuf* buf = stream.rdbuf();
     unsigned char i = 0;
     bool in_quotes = false;
     vars[i].clear();
@@ -108,7 +100,7 @@ static inline bool readline(istream& stream, string* vars, unsigned char num_var
                 break;
             case '\n':
                 if (in_quotes || i < num_vars - 1) {
-                    throw runtime_error("Unexpected end of line");
+                    throw std::runtime_error("Unexpected end of line");
                 }
                 return true;
             case '\r':
@@ -116,21 +108,21 @@ static inline bool readline(istream& stream, string* vars, unsigned char num_var
                     buf->sbumpc();
                 }
                 if (in_quotes || i < num_vars - 1) {
-                    throw runtime_error("Unexpected end of line");
+                    throw std::runtime_error("Unexpected end of line");
                 }
                 return true;
             case EOF:
                 if (vars[i].empty()) {
                     stream.setstate(std::ios::eofbit);
                 } else if (in_quotes || i < num_vars - 1) {
-                    throw runtime_error("Unexpected end of file");
+                    throw std::runtime_error("Unexpected end of file");
                 }
                 return false;
             case ',':
                 if (!in_quotes) {
                     i++;
                     if (i >= num_vars) {
-                        throw runtime_error("Too many columns");
+                        throw std::runtime_error("Too many columns");
                     }
                     vars[i].clear();
                 } else {
@@ -144,8 +136,8 @@ static inline bool readline(istream& stream, string* vars, unsigned char num_var
 }
 
 template<typename T, typename I>
-void Table<T, I>::read_indices_from_csv(istream& indicesstream) {
-    string cols[2];
+void Table<T, I>::read_indices_from_csv(std::istream& indicesstream) {
+    std::string cols[2];
     I l = 0;
     try {
         while (readline(indicesstream, cols, 2)) {
@@ -153,87 +145,88 @@ void Table<T, I>::read_indices_from_csv(istream& indicesstream) {
             index_set_.add_index(cols[1], cols[0]);
         }
         index_set_.rebuild_indices();
-    } catch (const runtime_error& ex) {
-        stringstream s;
+    } catch (const std::runtime_error& ex) {
+        std::stringstream s;
         s << ex.what();
         s << " (line " << l << ")";
-        throw runtime_error(s.str());
+        throw std::runtime_error(s.str());
     }
 }
 
 template<typename T, typename I>
-void Table<T, I>::read_data_from_csv(istream& datastream, const T& threshold) {
-    string line;
+void Table<T, I>::read_data_from_csv(std::istream& datastream, const T& threshold) {
+    std::string line;
     I l = 0;
     try {
-        typename vector<T>::iterator d = data.begin();
+        auto d = data.begin();
         for (l = 0; l < index_set_.size(); l++) {
-            if (l == numeric_limits<I>::max()) {
-                throw runtime_error("Too many rows");
+            if (l == std::numeric_limits<I>::max()) {
+                throw std::runtime_error("Too many rows");
             }
             if (!getline(datastream, line)) {
-                throw runtime_error("Not enough rows");
+                throw std::runtime_error("Not enough rows");
             }
-            istringstream ss(line);
-            string tmp;
+            std::istringstream ss(line);
+            std::string tmp;
             for (I c = 0; c < index_set_.size(); c++) {
                 if (!getline(ss, tmp, ',')) {
-                    throw runtime_error("Not enough columns");
+                    throw std::runtime_error("Not enough columns");
                 }
-                T flow = stof(tmp.c_str());
+                T flow = std::stof(tmp.c_str());
                 if (flow > threshold) {
                     *d = flow;
                 }
                 d++;
             }
         }
-    } catch (const runtime_error& ex) {
-        stringstream s;
+    } catch (const std::runtime_error& ex) {
+        std::stringstream s;
         s << ex.what();
         s << " (line " << l << ")";
-        throw runtime_error(s.str());
-    } catch (const exception& ex) {
-        stringstream s;
+        throw std::runtime_error(s.str());
+    } catch (const std::exception& ex) {
+        std::stringstream s;
         s << "Could not parse number";
         s << " (line " << l << ")";
-        throw runtime_error(s.str());
+        throw std::runtime_error(s.str());
     }
 }
 
 template<typename T, typename I>
-void Table<T, I>::read_from_csv(istream& indicesstream, istream& datastream, const T& threshold) {
+void Table<T, I>::read_from_csv(std::istream& indicesstream, std::istream& datastream, const T& threshold) {
     read_indices_from_csv(indicesstream);
     data.resize(index_set_.size() * index_set_.size(), 0);
     read_data_from_csv(datastream, threshold);
 }
 
 template<typename T, typename I>
-void Table<T, I>::write_to_csv(ostream& outstream) const {
+void Table<T, I>::write_to_csv(std::ostream& outstream) const {
     debug_out();
     for (const auto& row : index_set_.total_indices) {
         for (const auto& col : index_set_.total_indices) {
             outstream << at(row.index, col.index) << ",";
         }
         outstream.seekp(-1, std::ios_base::end);
-        outstream << endl;
+        outstream << '\n';
     }
+    outstream << std::flush;
     outstream.seekp(-1, std::ios_base::end);
 }
 
 template<typename T, typename I>
-void Table<T, I>::read_from_mrio(istream& instream, const T& threshold) {
+void Table<T, I>::read_from_mrio(std::istream& instream, const T& threshold) {
     unsigned char c;
     instream.read((char*)&c, sizeof(c));
     if (c != sizeof(I)) {
-        throw runtime_error("index type size mismatch");
+        throw std::runtime_error("index type size mismatch");
     }
     instream.read((char*)&c, sizeof(c));
     if (c != sizeof(T)) {
-        throw runtime_error("data type size mismatch");
+        throw std::runtime_error("data type size mismatch");
     }
     I sectors_count;
     instream.read((char*)&sectors_count, sizeof(I));
-    string s;
+    std::string s;
     for (I i = 0; i < sectors_count; i++) {
         getline(instream, s, '\0');
         index_set_.add_sector(s);
@@ -264,7 +257,7 @@ void Table<T, I>::read_from_mrio(istream& instream, const T& threshold) {
 }
 
 template<typename T, typename I>
-void Table<T, I>::write_to_mrio(ostream& outstream) const {
+void Table<T, I>::write_to_mrio(std::ostream& outstream) const {
     debug_out();
     unsigned char c = sizeof(I);
     outstream.write((const char*)&c, sizeof(c));
@@ -305,13 +298,13 @@ void Table<T, I>::write_to_mrio(ostream& outstream) const {
 }
 
 template<typename T, typename I>
-void Table<T, I>::read_from_netcdf(const string& filename, const T& threshold) {
+void Table<T, I>::read_from_netcdf(const std::string& filename, const T& threshold) {
     netCDF::NcFile file(filename, netCDF::NcFile::read);
 
     size_t sectors_count = file.getDim("sector").getSize();
     {
         netCDF::NcVar sectors_var = file.getVar("sector");
-        vector<const char*> sectors_val(sectors_count);
+        std::vector<const char*> sectors_val(sectors_count);
         sectors_var.getVar(&sectors_val[0]);
         for (const auto& sector : sectors_val) {
             index_set_.add_sector(sector);
@@ -321,7 +314,7 @@ void Table<T, I>::read_from_netcdf(const string& filename, const T& threshold) {
     size_t regions_count = file.getDim("region").getSize();
     {
         netCDF::NcVar regions_var = file.getVar("region");
-        vector<const char*> regions_val(regions_count);
+        std::vector<const char*> regions_val(regions_count);
         regions_var.getVar(&regions_val[0]);
         for (const auto& region : regions_val) {
             index_set_.add_region(region);
@@ -332,9 +325,9 @@ void Table<T, I>::read_from_netcdf(const string& filename, const T& threshold) {
     if (index_dim.isNull()) {
         data.resize(regions_count * sectors_count * regions_count * sectors_count);
         if (file.getVar("flows").getDims()[0].getName() == "sector") {
-            vector<T> data_(regions_count * sectors_count * regions_count * sectors_count);
+            std::vector<T> data_(regions_count * sectors_count * regions_count * sectors_count);
             file.getVar("flows").getVar(&data_[0]);
-            typename vector<T>::iterator d = data.begin();
+            auto d = data.begin();
             for (const auto& region_from : index_set_.superregions()) {
                 for (const auto& sector_from : index_set_.supersectors()) {
                     index_set_.add_index(sector_from.get(), region_from.get());
@@ -367,10 +360,10 @@ void Table<T, I>::read_from_netcdf(const string& filename, const T& threshold) {
     } else {
         size_t index_size = index_dim.getSize();
         netCDF::NcVar index_sector_var = file.getVar("index_sector");
-        vector<uint32_t> index_sector_val(index_size);
+        std::vector<uint32_t> index_sector_val(index_size);
         index_sector_var.getVar(&index_sector_val[0]);
         netCDF::NcVar index_region_var = file.getVar("index_region");
-        vector<uint32_t> index_region_val(index_size);
+        std::vector<uint32_t> index_region_val(index_size);
         index_region_var.getVar(&index_region_val[0]);
         for (unsigned int i = 0; i < index_size; ++i) {
             index_set_.add_index(index_set_.supersectors()[index_sector_val[i]].get(), index_set_.superregions()[index_region_val[i]].get());
@@ -387,7 +380,7 @@ void Table<T, I>::read_from_netcdf(const string& filename, const T& threshold) {
 }
 
 template<typename T, typename I>
-void Table<T, I>::write_to_netcdf(const string& filename) const {
+void Table<T, I>::write_to_netcdf(const std::string& filename) const {
     debug_out();
     netCDF::NcFile file(filename, netCDF::NcFile::replace, netCDF::NcFile::nc4);
 
@@ -430,8 +423,8 @@ void Table<T, I>::write_to_netcdf(const string& filename) const {
         netCDF::NcVar index_sector_var = file.addVar("index_sector", netCDF::NcType::nc_UINT, {index_dim});
         netCDF::NcVar index_region_var = file.addVar("index_region", netCDF::NcType::nc_UINT, {index_dim});
         for (const auto& index : index_set_.total_indices) {
-            index_sector_var.putVar({index.index}, index.sector->total_index());
-            index_region_var.putVar({index.index}, index.region->total_index());
+            index_sector_var.putVar({index.index}, static_cast<unsigned int>(index.sector->total_index()));
+            index_region_var.putVar({index.index}, static_cast<unsigned int>(index.region->total_index()));
         }
     }
 
@@ -615,14 +608,14 @@ void Table<T, I>::debug_out() const {
 }
 
 template<typename T, typename I>
-void Table<T, I>::insert_subsectors(const string& name, const vector<string>& subsectors) {
+void Table<T, I>::insert_subsectors(const std::string& name, const std::vector<std::string>& subsectors) {
     const Sector<I>* sector = index_set_.sector(name);
     const SuperSector<I>* i = sector->as_super();
     if (!i) {
-        throw runtime_error("'" + name + "' is a subsector");
+        throw std::runtime_error("'" + name + "' is a subsector");
     }
     if (i->has_sub()) {
-        throw runtime_error("'" + name + "' already has subsectors");
+        throw std::runtime_error("'" + name + "' already has subsectors");
     }
     I i_regions_count = 0;
     for (const auto& region : i->regions()) {
@@ -643,14 +636,14 @@ void Table<T, I>::insert_subsectors(const string& name, const vector<string>& su
 }
 
 template<typename T, typename I>
-void Table<T, I>::insert_subregions(const string& name, const vector<string>& subregions) {
+void Table<T, I>::insert_subregions(const std::string& name, const std::vector<std::string>& subregions) {
     const Region<I>* region = index_set_.region(name);
     const SuperRegion<I>* r = region->as_super();
     if (!r) {
-        throw runtime_error("'" + name + "' is a subregion");
+        throw std::runtime_error("'" + name + "' is a subregion");
     }
     if (r->has_sub()) {
-        throw runtime_error("'" + name + "' already has subregions");
+        throw std::runtime_error("'" + name + "' already has subregions");
     }
     I r_sectors_count = 0;
     for (const auto& sector : r->sectors()) {
@@ -670,6 +663,7 @@ void Table<T, I>::insert_subregions(const string& name, const vector<string>& su
     debug_out();
 }
 
-template class Table<float, unsigned int>;
-template class Table<double, unsigned int>;
-template class Table<unsigned char, unsigned int>;
+template class Table<float, size_t>;
+template class Table<double, size_t>;
+template class Table<unsigned char, size_t>;
+}

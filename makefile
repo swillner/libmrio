@@ -13,7 +13,7 @@ CC_FLAGS := -std=c++11 -I include -I lib/settingsnode/include -I lib/settingsnod
 LIBMRIO_VERSION := $(shell git describe --tags --dirty --always --long | sed -e '0,/-/s//./')
 LIBMRIO_FLAGS := $(GCC_WARNINGS) -DLIBMRIO_VERSION='"$(LIBMRIO_VERSION)"'
 
-.PHONY: all fast debug gcc clean format
+.PHONY: all fast debug gcc clean cleanall format
 
 all: fast
 
@@ -29,10 +29,14 @@ gcc: CC_FLAGS += $(GCC_OPTIONS)
 gcc: mrio_disaggregate
 
 clean:
-	@rm -f $(YAML_OBJ_FILES) $(OBJ_FILES) mrio_disaggregate
+	@rm -f $(OBJ_FILES) mrio_disaggregate
+
+cleanall: clean
+cleanall:
+	@rm -rf bin
 
 format:
-	@clang-format -style=file -i $(wildcard src/*/*.cpp) $(wildcard src/*.cpp) $(wildcard src/*/*.h) $(wildcard src/*.h) $(wildcard test/*.cpp)
+	@clang-format -style=file -i $(wildcard src/*.cpp) $(wildcard src/*.h) $(wildcard test/*.cpp)
 
 mrio_disaggregate: $(YAML_OBJ_FILES) $(OBJ_FILES)
 	@echo Linking to $@

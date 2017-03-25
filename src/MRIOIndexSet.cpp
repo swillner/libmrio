@@ -2,8 +2,7 @@
 #include <algorithm>
 #include <limits>
 
-using namespace mrio;
-using std::runtime_error;
+namespace mrio {
 
 template<typename I>
 void IndexSet<I>::clear() {
@@ -20,9 +19,9 @@ void IndexSet<I>::clear() {
 }
 
 template<typename I>
-SuperSector<I>* IndexSet<I>::add_sector(const string& name) {
+SuperSector<I>* IndexSet<I>::add_sector(const std::string& name) {
     if (subsectors_.size() > 0) {
-        throw runtime_error("Cannot add new sector when already disaggregated");
+        throw std::runtime_error("Cannot add new sector when already disaggregated");
     }
     const auto res = sectors_map.find(name);
     if (res == sectors_map.end()) {
@@ -38,9 +37,9 @@ SuperSector<I>* IndexSet<I>::add_sector(const string& name) {
 }
 
 template<typename I>
-SuperRegion<I>* IndexSet<I>::add_region(const string& name) {
+SuperRegion<I>* IndexSet<I>::add_region(const std::string& name) {
     if (subregions_.size() > 0) {
-        throw runtime_error("Cannot add new region when already disaggregated");
+        throw std::runtime_error("Cannot add new region when already disaggregated");
     }
     const auto res = regions_map.find(name);
     if (res == regions_map.end()) {
@@ -63,11 +62,11 @@ void IndexSet<I>::add_index(SuperSector<I>* sector_p, SuperRegion<I>* region_p) 
 }
 
 template<typename I>
-void IndexSet<I>::add_index(const string& sector_name, const string& region_name) {
+void IndexSet<I>::add_index(const std::string& sector_name, const std::string& region_name) {
     SuperSector<I>* sector_ = add_sector(sector_name);
     SuperRegion<I>* region_ = add_region(region_name);
     if (find(region_->sectors_.begin(), region_->sectors_.end(), sector_) != region_->sectors_.end()) {
-        throw runtime_error("Combination of sector and region already given");
+        throw std::runtime_error("Combination of sector and region already given");
     }
     add_index(sector_, region_);
 }
@@ -178,10 +177,10 @@ void IndexSet<I>::copy_pointers(const IndexSet<I>& other) {
 }
 
 template<typename I>
-void IndexSet<I>::insert_subsectors(const string& name, const vector<string>& newsubsectors) {
+void IndexSet<I>::insert_subsectors(const std::string& name, const std::vector<std::string>& newsubsectors) {
     SuperSector<I>* super = sectors_map.at(name)->as_super();
     if (!super) {
-        throw runtime_error("Sector '" + name + "' is not a super sector");
+        throw std::runtime_error("Sector '" + name + "' is not a super sector");
     }
     I total_index = super->total_index_;
     I level_index = subsectors_.size();
@@ -217,10 +216,10 @@ void IndexSet<I>::insert_subsectors(const string& name, const vector<string>& ne
 }
 
 template<typename I>
-void IndexSet<I>::insert_subregions(const string& name, const vector<string>& newsubregions) {
+void IndexSet<I>::insert_subregions(const std::string& name, const std::vector<std::string>& newsubregions) {
     SuperRegion<I>* super = regions_map.at(name)->as_super();
     if (!super) {
-        throw runtime_error("Region '" + name + "' is not a super region");
+        throw std::runtime_error("Region '" + name + "' is not a super region");
     }
     I total_index = super->total_index_;
     I level_index = subregions_.size();
@@ -255,4 +254,5 @@ void IndexSet<I>::insert_subregions(const string& name, const vector<string>& ne
     rebuild_indices();
 }
 
-template class IndexSet<unsigned int>;
+template class IndexSet<size_t>;
+}

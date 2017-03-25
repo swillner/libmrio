@@ -13,8 +13,8 @@
 #endif
 
 // Define types used in templates
-using I = unsigned int;  // Index type
-using T = double;        // Data type
+using I = size_t;  // Index type
+using T = double;  // Data type
 
 static void print_usage(const char* program_name) {
     std::cerr << "Regional and sectoral disaggregation of multi-regional input-output tables\n"

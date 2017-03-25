@@ -1,2 +1,7 @@
 bin/
 mrio_disaggregate
+GPATH
+GRTAGS
+GSYMS
+GTAGS
+compile_commands.json
