@@ -12,6 +12,11 @@ It includes a library for handling heterogeneous MRIO tables with up to one leve
 
 The implementation makes use of C++11 and the [https://github.com/Unidata/netcdf-cxx4](NetCDF-CXX4-library) (e.g. package `libnetcdf-c++4-dev` in Ubuntu/Debian).
 
+It also depends on my [https://github.com/swillner/cpp-library](CSV parser) and [https://github.com/swillner/settingsnode](Settings wrapper). These are included as submodules, so make sure to recursively clone this repository:
+```
+git clone https://github.com/swillner/libmrio.git --recursive
+```
+
 ## Compiling
 
 A makefile is provided, just use
