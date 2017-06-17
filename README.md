@@ -22,21 +22,13 @@ to create the `mrio_disaggregate` binary. Compiler has to support C++11, only te
 
 ## Usage
 
-`mrio_disaggregate` expects five filenames as parameters (example given under `examples/simple`):
+`mrio_disaggregate` expects the path of a YAML control file as parameter (or `-` and the file is read from stdin):
 
-1. Index file
-CSV-file with two columns: 1. region name; 2. sector name. Its rows correspond to the rows and columns of the basetable file.
+- YAML control file
+see example in `examples/simple`.
 
-2. Basetable file
-CSV-file of the basetable to be disaggregated
+- Proxy files
+CSV-files with proxy data. Column numbers depend on proxy level (as documented in the paper). First column: Year; Then columns of either region/sector name or column pairs of region/sector name and index (starting with 0) of subregion/subsector; Then value; Concluding with an optional column given the sum (only applies for GDP and population levels).
 
-3. Settings file
-CSV-file to control which regions/sectors to disaggregate into how many subregions/subsectors. Has three columns: 1. `region` or `sector`, depending on which to disaggregate; 2. Name of the region/sector to disaggregate; 3. Number of subregions/subsectors to disaggregate into.
-
-4. Proxy file
-CSV-file with the proxies. Column numbers depend on proxy level (as documented in the paper). First column: Proxy level; Then columns of either region/sector name or column pairs of region/sector name and index (starting with 0) of subregion/subsector; Then value; Concluding with an optional column given the sum (only applies for GDP and population levels).
-
-5. Output file
-Name of file to write disaggregated table to. It is given in CSV-format, rows and columns sorted by regions (subregions replacing original aggregated region) first, then sectors (subsectors replacing original aggregated sector).
-
-Additionally an optional threshold parameter for only considering basetable values greater than the threshold can be given using `-t THRESHOLD` or `-threshold=THRESHOLD`.
+- Formats
+Supported input and output formats are `csv`, `mrio` and `netcdf`.
