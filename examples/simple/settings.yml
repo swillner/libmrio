@@ -19,5 +19,5 @@ disaggregation:
         year: 2010
         file: proxy2.csv
 output:
-  file: test.nc
-  type: netcdf
+  file: output.csv
+  type: csv
