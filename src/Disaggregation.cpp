@@ -22,7 +22,6 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -33,93 +32,41 @@ Disaggregation<T, I>::Disaggregation(const mrio::Table<T, I>* basetable_p) : bas
     table.reset(new Table<T, I>(*basetable));
 }
 
-static inline const std::string readStr(std::istringstream& ss) {
-    std::string res;
-    if (!getline(ss, res, ',')) {
-        throw std::runtime_error("Not enough columns");
-    }
-    return res;
-}
-
 template<typename T, typename I>
-inline const I Disaggregation<T, I>::readI(std::istringstream& ss) {
-    return std::stoi(readStr(ss).c_str());
-}
-
-template<typename T, typename I>
-inline const T Disaggregation<T, I>::readT(std::istringstream& ss) {
-    return std::stof(readStr(ss).c_str());
-}
-
-template<typename T, typename I>
-inline const T Disaggregation<T, I>::readT_optional(std::istringstream& ss) {
-    std::string str;
-    if (getline(ss, str, ',')) {
-        return std::stof(str.c_str());
-    } else {
-        return std::numeric_limits<T>::quiet_NaN();
-    }
-}
-
-template<typename T, typename I>
-void Disaggregation<T, I>::read_disaggregation_file(const std::string& filename) {
-    std::ifstream file(filename);
-    if (!file) {
-        throw std::runtime_error("Could not open disaggregation file");
-    }
-    std::string line;
-    int l = 0;
-    try {
-        while (getline(file, line)) {
-            l++;
-            if (line[0] == '#') {  // ignore comment lines
-                continue;
-            }
-            std::istringstream ss(line);
-            std::string type = readStr(ss);
-            std::string name = readStr(ss);
-            I cnt = readI(ss);
-            if (cnt < 1) {
-                throw std::runtime_error("Invalid subsector/subregion count");
-            }
-            std::vector<std::string> subs;
-            subs.reserve(cnt);
-            for (I it = 0; it < cnt; it++) {
-                subs.push_back(name + std::to_string(it));
-            }
-            if (type == "sector") {
-                try {
-                    table->insert_subsectors(name, subs);
-                } catch (std::out_of_range& ex) {
-                    throw std::runtime_error("Sector '" + name + "' not found");
-                }
-            } else if (type == "region") {
-                try {
-                    table->insert_subregions(name, subs);
-                } catch (std::out_of_range& ex) {
-                    throw std::runtime_error("Region '" + name + "' not found");
-                }
-            } else {
-                throw std::runtime_error("Unknown type");
-            }
+void Disaggregation<T, I>::initialize(const settings::SettingsNode& settings) {
+    for (const auto& d : settings.as_sequence()) {
+        const std::string& type = d["type"].as<std::string>();
+        const std::string& id = d["id"].as<std::string>();
+        std::vector<std::string> subs;
+        for (const auto& sub : d["into"].as_sequence()) {
+            subs.push_back(sub.as<std::string>());
         }
-    } catch (const std::runtime_error& ex) {
-        std::ostringstream s;
-        s << ex.what() << " (in " << filename << ", line " << l << ")";
-        throw std::runtime_error(s.str());
-    } catch (const std::exception& ex) {
-        std::ostringstream s;
-        s << "Could not parse number"
-          << " (in " << filename << ", line " << l << ")";
-        throw std::runtime_error(s.str());
+        if (type == "sector") {
+            try {
+                table->insert_subsectors(id, subs);
+            } catch (std::out_of_range& ex) {
+                throw std::runtime_error("Sector '" + id + "' not found");
+            }
+        } else if (type == "region") {
+            try {
+                table->insert_subregions(id, subs);
+            } catch (std::out_of_range& ex) {
+                throw std::runtime_error("Region '" + id + "' not found");
+            }
+        } else {
+            throw std::runtime_error("Unknown type");
+        }
+        for (const auto& proxy : d["proxies"].as_sequence()) {
+            read_proxy_file(proxy["file"].as<std::string>(), proxy["level"].as<int>(), proxy["year"].as<int>());
+        }
     }
 }
 
 template<typename T, typename I>
-const Sector<I>* Disaggregation<T, I>::readSector(std::istringstream& ss) {
+const Sector<I>* Disaggregation<T, I>::read_sector(csv::Parser& in) {
     std::string str;
     try {
-        str = readStr(ss);
+        str = in.read_and_next<std::string>();
         return table->index_set().sector(str);
     } catch (std::out_of_range& ex) {
         throw std::runtime_error("Sector '" + str + "' not found");
@@ -127,10 +74,10 @@ const Sector<I>* Disaggregation<T, I>::readSector(std::istringstream& ss) {
 }
 
 template<typename T, typename I>
-const Region<I>* Disaggregation<T, I>::readRegion(std::istringstream& ss) {
+const Region<I>* Disaggregation<T, I>::read_region(csv::Parser& in) {
     std::string str;
     try {
-        str = readStr(ss);
+        str = in.read_and_next<std::string>();
         return table->index_set().region(str);
     } catch (std::out_of_range& ex) {
         throw std::runtime_error("Region '" + str + "' not found");
@@ -138,175 +85,165 @@ const Region<I>* Disaggregation<T, I>::readRegion(std::istringstream& ss) {
 }
 
 template<typename T, typename I>
-const SubSector<I>* Disaggregation<T, I>::readSubsector(std::istringstream& ss) {
-    const Sector<I>* sector = readSector(ss);
-    const SuperSector<I>* supersector = sector->as_super();
-    if (!supersector) {
-        throw std::runtime_error("Sector '" + sector->name + "' is not a super sector");
-    }
-    I id = readI(ss);
+const Sector<I>* Disaggregation<T, I>::read_subsector(csv::Parser& in) {
+    std::string str;
     try {
-        return supersector->sub().at(id);
+        str = in.read_and_next<std::string>();
+        return table->index_set().sector(str);
     } catch (std::out_of_range& ex) {
-        throw std::runtime_error("SubSector '" + sector->name + std::to_string(id) + "' not found");
+        throw std::runtime_error("Sector '" + str + "' not found");
     }
 }
 
 template<typename T, typename I>
-const SubRegion<I>* Disaggregation<T, I>::readSubregion(std::istringstream& ss) {
-    const Region<I>* region = readRegion(ss);
-    const SuperRegion<I>* superregion = region->as_super();
-    if (!superregion) {
-        throw std::runtime_error("Region '" + region->name + "' is not a super region");
-    }
-    I id = readI(ss);
+const Region<I>* Disaggregation<T, I>::read_subregion(csv::Parser& in) {
+    std::string str;
     try {
-        return superregion->sub().at(id);
+        str = in.read_and_next<std::string>();
+        return table->index_set().region(str);
     } catch (std::out_of_range& ex) {
-        throw std::runtime_error("SubRegion '" + region->name + std::to_string(id) + "' not found");
+        throw std::runtime_error("Region '" + str + "' not found");
     }
 }
 
 template<typename T, typename I>
-void Disaggregation<T, I>::read_proxy_file(const std::string& filename) {
+void Disaggregation<T, I>::read_proxy_file(const std::string& filename, const int d, const int year) {
     std::ifstream file(filename);
     if (!file) {
         throw std::runtime_error("Could not open proxy file");
     }
-    std::string line;
-    int l = 0;
     const I& subsectors_count = table->index_set().subsectors().size();
     const I& subregions_count = table->index_set().subregions().size();
     const I& sectors_count = table->index_set().supersectors().size();
     const I& regions_count = table->index_set().superregions().size();
     try {
-        if (!getline(file, line)) {
-            return;
-        }
-        unsigned char d;
-        do {  // while (getline(file, line))
-            l++;
-            if (line[0] == '#') {
+        csv::Parser in(file);
+        while (in.next_row()) {  // also skips header line
+            if (year != in.read_and_next<I>()) {
                 continue;
             }
-            std::istringstream ss(line);
-            d = readI(ss);
             switch (d) {
                 case LEVEL_POPULATION_1:
                 case LEVEL_GDP_SUBREGION_2: {
-                    const SubRegion<I>* r_lambda = readSubregion(ss);
+                    const Region<I>* r_lambda = read_subregion(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(subregions_count));
                         proxy_sums[d].reset(new ProxyData(regions_count));
                     }
-                    (*proxies[d])(r_lambda) = readT(ss);
-                    (*proxy_sums[d])(r_lambda->parent()) = readT_optional(ss);
+                    (*proxies[d])(r_lambda) = in.read_and_next<T>();
+                    if (!in.eol()) {
+                        (*proxy_sums[d])(r_lambda->parent()) = in.read_and_next<T>();
+                    }
                 } break;
                 case LEVEL_GDP_SUBSECTOR_3: {
-                    const SubSector<I>* i_mu = readSubsector(ss);
-                    const Region<I>* r = readRegion(ss);
+                    const Sector<I>* i_mu = read_subsector(in);
+                    const Region<I>* r = read_region(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(subsectors_count, regions_count));
                         proxy_sums[d].reset(new ProxyData(sectors_count, regions_count));
                     }
-                    (*proxies[d])(i_mu, r) = readT(ss);
-                    (*proxy_sums[d])(i_mu->parent(), r) = readT_optional(ss);
+                    (*proxies[d])(i_mu, r) = in.read_and_next<T>();
+                    if (!in.eol()) {
+                        (*proxy_sums[d])(i_mu->parent(), r) = in.read_and_next<T>();
+                    }
                 } break;
                 case LEVEL_GDP_SUBREGIONAL_SUBSECTOR_4: {
-                    const SubSector<I>* i_mu = readSubsector(ss);
-                    const SubRegion<I>* r_lambda = readSubregion(ss);
+                    const Sector<I>* i_mu = read_subsector(in);
+                    const Region<I>* r_lambda = read_subregion(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(subsectors_count, subregions_count));
                         proxy_sums[d].reset(new ProxyData(sectors_count, regions_count));
                     }
-                    (*proxies[d])(i_mu, r_lambda) = readT(ss);
-                    (*proxy_sums[d])(i_mu->parent(), r_lambda->parent()) = readT_optional(ss);
+                    (*proxies[d])(i_mu, r_lambda) = in.read_and_next<T>();
+                    if (!in.eol()) {
+                        (*proxy_sums[d])(i_mu->parent(), r_lambda->parent()) = in.read_and_next<T>();
+                    }
                 } break;
                 case LEVEL_IMPORT_SUBSECTOR_5: {
-                    const SubSector<I>* i_mu = readSubsector(ss);
-                    const Region<I>* s = readRegion(ss);
+                    const Sector<I>* i_mu = read_subsector(in);
+                    const Region<I>* s = read_region(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(subsectors_count, regions_count));
                     }
-                    (*proxies[d])(i_mu, s) = readT(ss);
+                    (*proxies[d])(i_mu, s) = in.read_and_next<T>();
                 } break;
                 case LEVEL_IMPORT_SUBREGION_6: {
-                    const Sector<I>* j = readSector(ss);
-                    const SubRegion<I>* r_lambda = readSubregion(ss);
+                    const Sector<I>* j = read_sector(in);
+                    const Region<I>* r_lambda = read_subregion(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(sectors_count, subregions_count));
                     }
-                    (*proxies[d])(j, r_lambda) = readT(ss);
+                    (*proxies[d])(j, r_lambda) = in.read_and_next<T>();
                 } break;
                 case LEVEL_INTERREGIONAL_SUBSECTOR_INPUT_7: {
-                    const SubSector<I>* i_mu = readSubsector(ss);
-                    const SubRegion<I>* r_lambda = readSubregion(ss);
+                    const Sector<I>* i_mu = read_subsector(in);
+                    const Region<I>* r_lambda = read_subregion(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(subsectors_count, subregions_count));
                     }
-                    (*proxies[d])(i_mu, r_lambda) = readT(ss);
+                    (*proxies[d])(i_mu, r_lambda) = in.read_and_next<T>();
                 } break;
                 case LEVEL_EXPORT_SUBREGIONAL_SUBSECTOR_8: {
-                    const SubSector<I>* i_mu = readSubsector(ss);
-                    const SubRegion<I>* r_lambda = readSubregion(ss);
+                    const Sector<I>* i_mu = read_subsector(in);
+                    const Region<I>* r_lambda = read_subregion(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(subsectors_count, subregions_count));
                     }
-                    (*proxies[d])(i_mu, r_lambda) = readT(ss);
+                    (*proxies[d])(i_mu, r_lambda) = in.read_and_next<T>();
                 } break;
                 case LEVEL_IMPORT_SUBSECTOR_BY_REGIONAL_SECTOR_9: {
-                    const SubSector<I>* i_mu = readSubsector(ss);
-                    const Sector<I>* j = readSector(ss);
-                    const Region<I>* s = readRegion(ss);
+                    const Sector<I>* i_mu = read_subsector(in);
+                    const Sector<I>* j = read_sector(in);
+                    const Region<I>* s = read_region(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(subsectors_count, sectors_count, regions_count));
                     }
-                    (*proxies[d])(i_mu, j, s) = readT(ss);
+                    (*proxies[d])(i_mu, j, s) = in.read_and_next<T>();
                 } break;
                 case LEVEL_EXPORT_SUBREGION_10: {
-                    const Sector<I>* j = readSector(ss);
-                    const Region<I>* s = readRegion(ss);
-                    const SubRegion<I>* r_lambda = readSubregion(ss);
+                    const Sector<I>* j = read_sector(in);
+                    const Region<I>* s = read_region(in);
+                    const Region<I>* r_lambda = read_subregion(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(sectors_count, regions_count, subregions_count));
                     }
-                    (*proxies[d])(j, s, r_lambda) = readT(ss);
+                    (*proxies[d])(j, s, r_lambda) = in.read_and_next<T>();
                 } break;
                 case LEVEL_SUBREGIONAL_SUBSECTOR_INPUT_11: {
-                    const SubSector<I>* i_mu1 = readSubsector(ss);
-                    const SubSector<I>* i_mu2 = readSubsector(ss);
-                    const SubRegion<I>* r_lambda = readSubregion(ss);
+                    const Sector<I>* i_mu1 = read_subsector(in);
+                    const Sector<I>* i_mu2 = read_subsector(in);
+                    const Region<I>* r_lambda = read_subregion(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(subsectors_count, subsectors_count, subregions_count));
                     }
-                    (*proxies[d])(i_mu1, i_mu2, r_lambda) = readT(ss);
+                    (*proxies[d])(i_mu1, i_mu2, r_lambda) = in.read_and_next<T>();
                 } break;
                 case LEVEL_EXPORT_SUBREGIONAL_SUBSECTOR_TO_REGION_12: {
-                    const SubSector<I>* i_mu = readSubsector(ss);
-                    const SubRegion<I>* r_lambda = readSubregion(ss);
-                    const Region<I>* s = readRegion(ss);
+                    const Sector<I>* i_mu = read_subsector(in);
+                    const Region<I>* r_lambda = read_subregion(in);
+                    const Region<I>* s = read_region(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(subsectors_count, subregions_count, regions_count));
                     }
-                    (*proxies[d])(i_mu, r_lambda, s) = readT(ss);
+                    (*proxies[d])(i_mu, r_lambda, s) = in.read_and_next<T>();
                 } break;
                 case LEVEL_IMPORT_SUBREGIONAL_SUBSECTOR_13: {
-                    const Sector<I>* j = readSector(ss);
-                    const SubSector<I>* i_mu = readSubsector(ss);
-                    const SubRegion<I>* r_lambda = readSubregion(ss);
+                    const Sector<I>* j = read_sector(in);
+                    const Sector<I>* i_mu = read_subsector(in);
+                    const Region<I>* r_lambda = read_subregion(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(sectors_count, subsectors_count, subregions_count));
                     }
-                    (*proxies[d])(j, i_mu, r_lambda) = readT(ss);
+                    (*proxies[d])(j, i_mu, r_lambda) = in.read_and_next<T>();
                 } break;
                 case LEVEL_EXPORT_SUBREGIONAL_SUBSECTOR_TO_SUBREGION_14: {
-                    const SubSector<I>* i_mu = readSubsector(ss);
-                    const SubRegion<I>* r_lambda1 = readSubregion(ss);
-                    const SubRegion<I>* r_lambda2 = readSubregion(ss);
+                    const Sector<I>* i_mu = read_subsector(in);
+                    const Region<I>* r_lambda1 = read_subregion(in);
+                    const Region<I>* r_lambda2 = read_subregion(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(subsectors_count, subregions_count, subregions_count));
                     }
-                    (*proxies[d])(i_mu, r_lambda1, r_lambda2) = readT(ss);
+                    (*proxies[d])(i_mu, r_lambda1, r_lambda2) = in.read_and_next<T>();
                 } break;
                 case LEVEL_PETERS1_15:
                 case LEVEL_PETERS2_16:
@@ -314,29 +251,24 @@ void Disaggregation<T, I>::read_proxy_file(const std::string& filename) {
                     throw std::runtime_error("Levels 15, 16, 17 cannot be given explicitly");
                     break;
                 case LEVEL_EXACT_18: {
-                    const SubSector<I>* i_mu1 = readSubsector(ss);
-                    const SubRegion<I>* r_lambda1 = readSubregion(ss);
-                    const SubSector<I>* i_mu2 = readSubsector(ss);
-                    const SubRegion<I>* r_lambda2 = readSubregion(ss);
+                    const Sector<I>* i_mu1 = read_subsector(in);
+                    const Region<I>* r_lambda1 = read_subregion(in);
+                    const Sector<I>* i_mu2 = read_subsector(in);
+                    const Region<I>* r_lambda2 = read_subregion(in);
                     if (!proxies[d]) {
                         proxies[d].reset(new ProxyData(subsectors_count, subregions_count, subsectors_count, subregions_count));
                     }
-                    (*proxies[d])(i_mu1, r_lambda1, i_mu2, r_lambda2) = readT(ss);
+                    (*proxies[d])(i_mu1, r_lambda1, i_mu2, r_lambda2) = in.read_and_next<T>();
                 } break;
                 default:
                     throw std::runtime_error("Unknown d-level");
                     break;
             }
-        } while (getline(file, line));
-    } catch (const std::runtime_error& ex) {
+        }
+    } catch (const csv::parser_exception& ex) {
         std::stringstream s;
         s << ex.what();
-        s << " (in " << filename << ", line " << l << ")";
-        throw std::runtime_error(s.str());
-    } catch (const std::exception& ex) {
-        std::stringstream s;
-        s << "Could not parse number";
-        s << " (in " << filename << ", line " << l << ")";
+        s << " (in " << filename << ", line " << ex.row << ", col " << ex.col << ")";
         throw std::runtime_error(s.str());
     }
 }
@@ -344,10 +276,10 @@ void Disaggregation<T, I>::read_proxy_file(const std::string& filename) {
 template<typename T, typename I>
 void Disaggregation<T, I>::refine() {
     last_table.reset(new Table<T, I>(*table));
-    quality.reset(new Table<unsigned char, I>(table->index_set(), 0));
+    quality.reset(new Table<int, I>(table->index_set(), 0));
 
     // apply actual algorithm
-    for (unsigned char d = 1; d < PROXY_COUNT; d++) {
+    for (int d = 1; d < PROXY_COUNT; d++) {
         if (proxies[d]
             || (d == LEVEL_PETERS1_15 && proxies[LEVEL_IMPORT_SUBSECTOR_5] && proxies[LEVEL_IMPORT_SUBSECTOR_BY_REGIONAL_SECTOR_9]
                 && proxies[LEVEL_EXPORT_SUBREGIONAL_SUBSECTOR_TO_REGION_12])
@@ -401,7 +333,7 @@ void for_all_sub(
 }
 
 template<typename T, typename I>
-void Disaggregation<T, I>::approximate(const unsigned char& d) {
+void Disaggregation<T, I>::approximate(const int& d) {
     switch (d) {
         case LEVEL_POPULATION_1:
 
@@ -818,7 +750,7 @@ void Disaggregation<T, I>::approximate(const unsigned char& d) {
 }
 
 template<typename T, typename I>
-void Disaggregation<T, I>::adjust(const unsigned char& d) {
+void Disaggregation<T, I>::adjust(const int& d) {
     for (const auto& ir : table->index_set().super_indices) {
         for (const auto& js : table->index_set().super_indices) {
             const T& base = basetable->base(ir.sector, ir.region, js.sector, js.region);

@@ -20,20 +20,21 @@
 #ifndef LIBMRIO_MRIOTABLE_H
 #define LIBMRIO_MRIOTABLE_H
 
-#include "MRIOIndexSet.h"
+#include <limits>
 #include <string>
 #include <vector>
-#include <limits>
-#include <vector>
+#include "MRIOIndexSet.h"
 #ifdef DEBUG
 #include <cassert>
 #else
-#define assert(a) {}
+#define assert(a) \
+    {}
 #endif
 
 namespace mrio {
 
-template<typename T, typename I> class Table {
+template<typename T, typename I>
+class Table {
   protected:
     std::vector<T> data;
     IndexSet<I> index_set_;
@@ -41,19 +42,24 @@ template<typename T, typename I> class Table {
     void read_indices_from_csv(std::istream& indicesstream);
     void read_data_from_csv(std::istream& datastream, const T& threshold);
     void insert_sector_offset_x_y(const SuperSector<I>* i, const I& i_regions_count, const I& subsectors_count);
-    void insert_sector_offset_y(const SuperSector<I>* i, const I& i_regions_count, const I& subsectors_count, const I& x, const I& x_offset, const I& divide_by);
+    void insert_sector_offset_y(
+        const SuperSector<I>* i, const I& i_regions_count, const I& subsectors_count, const I& x, const I& x_offset, const I& divide_by);
     void insert_region_offset_x_y(const SuperRegion<I>* r, const I& r_sectors_count, const I& subregions_count);
-    void insert_region_offset_y(const SuperRegion<I>* r, const I& r_sectors_count, const I& subregions_count, const I& x, const I& x_offset, const I& divide_by,
-                                const I& first_index, const I& last_index);
+    void insert_region_offset_y(const SuperRegion<I>* r,
+                                const I& r_sectors_count,
+                                const I& subregions_count,
+                                const I& x,
+                                const I& x_offset,
+                                const I& divide_by,
+                                const I& first_index,
+                                const I& last_index);
 
   public:
-    Table() {};
+    Table(){};
     Table(const IndexSet<I>& index_set_p, const T default_value_p = std::numeric_limits<T>::signaling_NaN()) : index_set_(index_set_p) {
         data.resize(index_set_.size() * index_set_.size(), default_value_p);
     };
-    inline const IndexSet<I>& index_set() const {
-        return index_set_;
-    };
+    inline const IndexSet<I>& index_set() const { return index_set_; };
     void insert_subsectors(const std::string& name, const std::vector<std::string>& subsectors);
     void insert_subregions(const std::string& name, const std::vector<std::string>& subsectors);
     const T sum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept;
@@ -123,13 +129,9 @@ template<typename T, typename I> class Table {
         assert(index_set_.base(j, s) >= 0);
         return (*this)(index_set_.base(i, r), index_set_.base(j, s));
     };
-    void replace_table_from(const Table& other) {
-        data = other.data;
-    };
-    const std::vector<T>& raw_data() const {
-        return data;
-    }
-    void debug_out() const; // TODO
+    void replace_table_from(const Table& other) { data = other.data; };
+    const std::vector<T>& raw_data() const { return data; }
+    void debug_out() const;  // TODO
 };
 }
 

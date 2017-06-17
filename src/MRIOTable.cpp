@@ -30,12 +30,7 @@
 #include <sstream>
 #include <stdexcept>
 #include "MRIOIndexSet.h"
-#ifdef DEBUG
-#include <cassert>
-#else
-#define assert(a) \
-    {}
-#endif
+#include "csv-parser.h"
 
 namespace mrio {
 
@@ -105,108 +100,51 @@ const T Table<T, I>::basesum(const SuperSector<I>* i, const SuperRegion<I>* r, c
     return res;
 }
 
-static inline bool readline(std::istream& stream, std::string* vars, unsigned char num_vars) {
-    std::istream::sentry s(stream, true);
-    std::streambuf* buf = stream.rdbuf();
-    unsigned char i = 0;
-    bool in_quotes = false;
-    vars[i].clear();
-    for (;;) {
-        int c = buf->sbumpc();
-        switch (c) {
-            case '"':
-                in_quotes = !in_quotes;
-                break;
-            case '\n':
-                if (in_quotes || i < num_vars - 1) {
-                    throw std::runtime_error("Unexpected end of line");
-                }
-                return true;
-            case '\r':
-                if (buf->sgetc() == '\n') {
-                    buf->sbumpc();
-                }
-                if (in_quotes || i < num_vars - 1) {
-                    throw std::runtime_error("Unexpected end of line");
-                }
-                return true;
-            case EOF:
-                if (vars[i].empty()) {
-                    stream.setstate(std::ios::eofbit);
-                } else if (in_quotes || i < num_vars - 1) {
-                    throw std::runtime_error("Unexpected end of file");
-                }
-                return false;
-            case ',':
-                if (!in_quotes) {
-                    i++;
-                    if (i >= num_vars) {
-                        throw std::runtime_error("Too many columns");
-                    }
-                    vars[i].clear();
-                } else {
-                    vars[i] += (char)c;
-                }
-                break;
-            default:
-                vars[i] += (char)c;
-        }
-    }
-}
-
 template<typename T, typename I>
 void Table<T, I>::read_indices_from_csv(std::istream& indicesstream) {
     std::string cols[2];
-    I l = 0;
     try {
-        while (readline(indicesstream, cols, 2)) {
-            l++;
-            index_set_.add_index(cols[1], cols[0]);
+        csv::Parser parser(indicesstream);
+        for (auto&& row : parser) {
+            const std::tuple<std::string, std::string> c = parser.read<std::string, std::string>();
+            index_set_.add_index(std::get<1>(c), std::get<0>(c));
         }
         index_set_.rebuild_indices();
-    } catch (const std::runtime_error& ex) {
+    } catch (const csv::parser_exception& ex) {
         std::stringstream s;
         s << ex.what();
-        s << " (line " << l << ")";
+        s << " (line " << ex.row << " col " << ex.col << ")";
         throw std::runtime_error(s.str());
     }
 }
 
 template<typename T, typename I>
 void Table<T, I>::read_data_from_csv(std::istream& datastream, const T& threshold) {
-    std::string line;
     I l = 0;
     try {
+        csv::Parser parser(datastream);
         auto d = data.begin();
         for (l = 0; l < index_set_.size(); l++) {
             if (l == std::numeric_limits<I>::max()) {
                 throw std::runtime_error("Too many rows");
             }
-            if (!getline(datastream, line)) {
-                throw std::runtime_error("Not enough rows");
-            }
-            std::istringstream ss(line);
-            std::string tmp;
             for (I c = 0; c < index_set_.size(); c++) {
-                if (!getline(ss, tmp, ',')) {
-                    throw std::runtime_error("Not enough columns");
+                if (c == std::numeric_limits<I>::max()) {
+                    throw std::runtime_error("Too many columns");
                 }
-                T flow = std::stof(tmp.c_str());
+                T flow = parser.read<T>();
                 if (flow > threshold) {
                     *d = flow;
                 }
                 d++;
+                parser.next_col();
             }
+            parser.next_row();
         }
-    } catch (const std::runtime_error& ex) {
+    } catch (const csv::parser_exception& ex) {
         std::stringstream s;
         s << ex.what();
-        s << " (line " << l << ")";
-        throw std::runtime_error(s.str());
-    } catch (const std::exception& ex) {
-        std::stringstream s;
-        s << "Could not parse number";
-        s << " (line " << l << ")";
+        s << " (line " << ex.row << " col " << ex.col << ")";
         throw std::runtime_error(s.str());
     }
 }
@@ -446,7 +384,6 @@ void Table<T, I>::write_to_netcdf(const std::string& filename) const {
             index_region_var.putVar({index.index}, static_cast<unsigned int>(index.region->total_index()));
         }
     }
-
     netCDF::NcVar flows_var = file.addVar("flows", netCDF::NcType::nc_FLOAT, {index_dim, index_dim});
     flows_var.setCompression(false, true, 7);
     flows_var.setFill<T>(true, std::numeric_limits<T>::quiet_NaN());
@@ -684,5 +621,5 @@ void Table<T, I>::insert_subregions(const std::string& name, const std::vector<s
 
 template class Table<float, size_t>;
 template class Table<double, size_t>;
-template class Table<unsigned char, size_t>;
+template class Table<int, size_t>;
 }

@@ -22,15 +22,10 @@
 
 #include <cmath>
 #include <limits>
-#include <sstream>
 #include <unordered_map>
 #include "MRIOTable.h"
-#ifdef DEBUG
-#include <cassert>
-#else
-#define assert(a) \
-    {}
-#endif
+#include "csv-parser.h"
+#include "settingsnode.h"
 
 namespace mrio {
 
@@ -58,11 +53,11 @@ class Disaggregation {
         LEVEL_PETERS3_17 = 17,
         LEVEL_EXACT_18 = 18
     };
-    static const unsigned char PROXY_COUNT = LEVEL_EXACT_18 + 1;
+    static const int PROXY_COUNT = LEVEL_EXACT_18 + 1;
     class ProxyData {
       protected:
         std::vector<T> data;
-        unsigned char dim;
+        int dim;
         I size[4];
 
       public:
@@ -105,25 +100,22 @@ class Disaggregation {
     // only needed during actual disaggregation
     std::unique_ptr<mrio::Table<T, I>> last_table;  // table in disaggregation used for accessing d-1 values
     std::unique_ptr<mrio::Table<T, I>> table;
-    std::unique_ptr<mrio::Table<unsigned char, I>> quality;
+    std::unique_ptr<mrio::Table<int, I>> quality;
 
-    const Sector<I>* readSector(std::istringstream& ss);
-    const Region<I>* readRegion(std::istringstream& ss);
-    const SubSector<I>* readSubsector(std::istringstream& ss);
-    const SubRegion<I>* readSubregion(std::istringstream& ss);
-    const I readI(std::istringstream& ss);
-    const T readT(std::istringstream& ss);
-    const T readT_optional(std::istringstream& ss);
+    inline const Sector<I>* read_sector(csv::Parser& in);
+    inline const Region<I>* read_region(csv::Parser& in);
+    inline const Sector<I>* read_subsector(csv::Parser& in);
+    inline const Region<I>* read_subregion(csv::Parser& in);
 
-    void approximate(const unsigned char& d);
-    void adjust(const unsigned char& d);
+    void approximate(const int& d);
+    void adjust(const int& d);
+    void read_proxy_file(const std::string& filename, const int d, const int year);
 
   public:
     Disaggregation(const Table<T, I>* basetable_p);
     virtual ~Disaggregation(){};
     void refine();
-    void read_proxy_file(const std::string& filename);
-    void read_disaggregation_file(const std::string& filename);
+    void initialize(const settings::SettingsNode& settings);
     const Table<T, I>& refined_table() const { return *table; }
 };
 }
