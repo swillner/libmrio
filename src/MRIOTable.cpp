@@ -105,7 +105,7 @@ void Table<T, I>::read_indices_from_csv(std::istream& indicesstream) {
     std::string cols[2];
     try {
         csv::Parser parser(indicesstream);
-        for (auto&& row : parser) {
+        for (const auto& row : parser) {
             const std::tuple<std::string, std::string> c = parser.read<std::string, std::string>();
             index_set_.add_index(std::get<1>(c), std::get<0>(c));
         }
