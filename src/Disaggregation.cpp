@@ -59,7 +59,7 @@ void Disaggregation<T, I>::initialize(const settings::SettingsNode& settings) {
     }
     for (const auto& d : settings.as_sequence()) {
         for (const auto& proxy : d["proxies"].as_sequence()) {
-            read_proxy_file(proxy["file"].as<std::string>(), proxy["level"].as<int>(), proxy["year"].as<int>());
+            read_proxy_file(proxy["file"].as<std::string>(), proxy["level"].as<int>(), proxy["year"].as<I>());
         }
     }
 }
@@ -109,7 +109,7 @@ const Region<I>* Disaggregation<T, I>::read_subregion(csv::Parser& in) {
 }
 
 template<typename T, typename I>
-void Disaggregation<T, I>::read_proxy_file(const std::string& filename, const int d, const int year) {
+void Disaggregation<T, I>::read_proxy_file(const std::string& filename, int d, I year) {
     std::ifstream file(filename);
     if (!file) {
         throw std::runtime_error("Could not open proxy file");
@@ -306,13 +306,11 @@ void for_all_sub(
     const Region<I>* r,
     const Sector<I>* j,
     const Region<I>* s,
-    std::function<void(
-        const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub, const bool j_sub, const bool s_sub)>
-        func,
-    const bool i_sub = false,
-    const bool r_sub = false,
-    const bool j_sub = false,
-    const bool s_sub = false) {
+    std::function<void(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool i_sub, bool r_sub, bool j_sub, bool s_sub)> func,
+    bool i_sub = false,
+    bool r_sub = false,
+    bool j_sub = false,
+    bool s_sub = false) {
     if (i->has_sub()) {
         for (const auto& i_mu : i->as_super()->sub()) {
             for_all_sub<T, I>(i_mu, r, j, s, func, true, r_sub, j_sub, s_sub);
@@ -354,8 +352,8 @@ void Disaggregation<T, I>::approximate(const int& d) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(
                         ir.sector, ir.region, js.sector, js.region,
-                        [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                            const bool j_sub, const bool s_sub) {
+                        [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool /* i_sub */, bool r_sub, bool /* j_sub */,
+                            bool s_sub) {
                             T sum1 = 1, value1 = 1, sum2 = 1, value2 = 1;
                             if (r_sub) {
                                 sum1 = (*proxy_sums[d])(r->parent());
@@ -395,8 +393,8 @@ void Disaggregation<T, I>::approximate(const int& d) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(
                         ir.sector, ir.region, js.sector, js.region,
-                        [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                            const bool j_sub, const bool s_sub) {
+                        [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool i_sub, bool /* r_sub */, bool j_sub,
+                            bool /* s_sub */) {
                             T sum1 = 1, value1 = 1, sum2 = 1, value2 = 1;
                             if (i_sub) {
                                 sum1 = (*proxy_sums[d])(i->parent(), r->super());
@@ -440,8 +438,7 @@ void Disaggregation<T, I>::approximate(const int& d) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(
                         ir.sector, ir.region, js.sector, js.region,
-                        [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                            const bool j_sub, const bool s_sub) {
+                        [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool i_sub, bool r_sub, bool j_sub, bool s_sub) {
                             T sum1 = 1, value1 = 1, sum2 = 1, value2 = 1;
                             if (i_sub && r_sub) {
                                 sum1 = (*proxy_sums[d])(i->parent(), r->parent());
@@ -467,8 +464,8 @@ void Disaggregation<T, I>::approximate(const int& d) {
             for (const auto& ir : table->index_set().super_indices) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool i_sub, bool /* r_sub */,
+                                          bool /* j_sub */, bool /* s_sub */) {
                                           if (i_sub) {
                                               const T& value = (*proxies[d])(i, s->super());
                                               if (!std::isnan(value)) {
@@ -487,8 +484,8 @@ void Disaggregation<T, I>::approximate(const int& d) {
             for (const auto& ir : table->index_set().super_indices) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool /* i_sub */, bool /* r_sub */,
+                                          bool /* j_sub */, bool s_sub) {
                                           if (s_sub) {
                                               const T& value = (*proxies[d])(i->super(), s);
                                               if (!std::isnan(value)) {
@@ -507,8 +504,8 @@ void Disaggregation<T, I>::approximate(const int& d) {
             for (const auto& ir : table->index_set().super_indices) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool i_sub, bool /* r_sub */,
+                                          bool /* j_sub */, bool s_sub) {
                                           if (i_sub && s_sub) {
                                               const T& value = (*proxies[d])(i, s);
                                               if (!std::isnan(value)) {
@@ -527,17 +524,17 @@ void Disaggregation<T, I>::approximate(const int& d) {
             for (const auto& ir : table->index_set().super_indices) {
                 const T& sum = basetable->basesum(ir.sector, ir.region, nullptr, nullptr);
                 for (const auto& js : table->index_set().super_indices) {
-                    for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
-                                          if (i_sub && r_sub && j_sub == s_sub) {
-                                              const T& value = (*proxies[d])(i, r);
-                                              if (!std::isnan(value)) {
-                                                  (*table)(i, r, j, s) = last_table->sum(i->parent(), r->parent(), j, s) * value / sum;
-                                                  (*quality)(i, r, j, s) = d;
-                                              }
-                                          }
-                                      });
+                    for_all_sub<T, I>(
+                        ir.sector, ir.region, js.sector, js.region,
+                        [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool i_sub, bool r_sub, bool j_sub, bool s_sub) {
+                            if (i_sub && r_sub && j_sub == s_sub) {
+                                const T& value = (*proxies[d])(i, r);
+                                if (!std::isnan(value)) {
+                                    (*table)(i, r, j, s) = last_table->sum(i->parent(), r->parent(), j, s) * value / sum;
+                                    (*quality)(i, r, j, s) = d;
+                                }
+                            }
+                        });
                 }
             }
             break;
@@ -547,8 +544,8 @@ void Disaggregation<T, I>::approximate(const int& d) {
             for (const auto& ir : table->index_set().super_indices) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool i_sub, bool /* r_sub */,
+                                          bool /* j_sub */, bool /* s_sub */) {
                                           if (i_sub) {
                                               const T& value = (*proxies[d])(i, j->super(), s->super());
                                               if (!std::isnan(value)) {
@@ -567,8 +564,8 @@ void Disaggregation<T, I>::approximate(const int& d) {
             for (const auto& ir : table->index_set().super_indices) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool /* i_sub */, bool /* r_sub */,
+                                          bool /* j_sub */, bool s_sub) {
                                           if (s_sub) {
                                               const T& value = (*proxies[d])(i->super(), r->super(), s);
                                               if (!std::isnan(value)) {
@@ -587,8 +584,8 @@ void Disaggregation<T, I>::approximate(const int& d) {
             for (const auto& ir : table->index_set().super_indices) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool i_sub, bool /* r_sub */,
+                                          bool j_sub, bool s_sub) {
                                           if (i_sub && j_sub && s_sub) {
                                               const T& value = (*proxies[d])(i, j, s);
                                               if (!std::isnan(value)) {
@@ -607,8 +604,8 @@ void Disaggregation<T, I>::approximate(const int& d) {
             for (const auto& ir : table->index_set().super_indices) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool i_sub, bool r_sub,
+                                          bool /* j_sub */, bool /* s_sub */) {
                                           if (i_sub && r_sub) {
                                               const T& value = (*proxies[d])(i, r, s->super());
                                               if (!std::isnan(value)) {
@@ -627,8 +624,8 @@ void Disaggregation<T, I>::approximate(const int& d) {
             for (const auto& ir : table->index_set().super_indices) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool /* i_sub */, bool /* r_sub */,
+                                          bool j_sub, bool s_sub) {
                                           if (j_sub && s_sub) {
                                               const T& value = (*proxies[d])(i->super(), j, s);
                                               if (!std::isnan(value)) {
@@ -647,8 +644,8 @@ void Disaggregation<T, I>::approximate(const int& d) {
             for (const auto& ir : table->index_set().super_indices) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool i_sub, bool r_sub,
+                                          bool /* j_sub */, bool s_sub) {
                                           if (i_sub && r_sub && s_sub) {
                                               const T& value = (*proxies[d])(i, r, s);
                                               if (!std::isnan(value)) {
@@ -667,8 +664,8 @@ void Disaggregation<T, I>::approximate(const int& d) {
             for (const auto& ir : table->index_set().super_indices) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool i_sub, bool r_sub,
+                                          bool /* j_sub */, bool /* s_sub */) {
                                           if (i_sub && r_sub) {
                                               const T& value1 = (*proxies[LEVEL_IMPORT_SUBSECTOR_5])(i, s->super());
                                               const T& value2 = (*proxies[LEVEL_IMPORT_SUBSECTOR_BY_REGIONAL_SECTOR_9])(i, j->super(), s->super());
@@ -688,8 +685,8 @@ void Disaggregation<T, I>::approximate(const int& d) {
             for (const auto& ir : table->index_set().super_indices) {
                 for (const auto& js : table->index_set().super_indices) {
                     for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool /* i_sub */, bool /* r_sub */,
+                                          bool j_sub, bool s_sub) {
                                           if (j_sub && s_sub) {
                                               const T& value1 = (*proxies[LEVEL_IMPORT_SUBREGION_6])(i->super(), s);
                                               const T& value2 = (*proxies[LEVEL_EXPORT_SUBREGION_10])(i->super(), r->super(), s);
@@ -708,19 +705,19 @@ void Disaggregation<T, I>::approximate(const int& d) {
 
             for (const auto& ir : table->index_set().super_indices) {
                 for (const auto& js : table->index_set().super_indices) {
-                    for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
-                                          if (i_sub && r_sub && j_sub && s_sub) {
-                                              const T& value1 = (*proxies[LEVEL_INTERREGIONAL_SUBSECTOR_INPUT_7])(i, s);
-                                              const T& value2 = (*proxies[LEVEL_SUBREGIONAL_SUBSECTOR_INPUT_11])(i, j, s);
-                                              const T& value3 = (*proxies[LEVEL_EXPORT_SUBREGIONAL_SUBSECTOR_TO_SUBREGION_14])(i, r, s);
-                                              if (!std::isnan(value1) && !std::isnan(value2) && !std::isnan(value3)) {
-                                                  (*table)(i, r, j, s) = value2 * value3 / value1;
-                                                  (*quality)(i, r, j, s) = d;
-                                              }
-                                          }
-                                      });
+                    for_all_sub<T, I>(
+                        ir.sector, ir.region, js.sector, js.region,
+                        [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool i_sub, bool r_sub, bool j_sub, bool s_sub) {
+                            if (i_sub && r_sub && j_sub && s_sub) {
+                                const T& value1 = (*proxies[LEVEL_INTERREGIONAL_SUBSECTOR_INPUT_7])(i, s);
+                                const T& value2 = (*proxies[LEVEL_SUBREGIONAL_SUBSECTOR_INPUT_11])(i, j, s);
+                                const T& value3 = (*proxies[LEVEL_EXPORT_SUBREGIONAL_SUBSECTOR_TO_SUBREGION_14])(i, r, s);
+                                if (!std::isnan(value1) && !std::isnan(value2) && !std::isnan(value3)) {
+                                    (*table)(i, r, j, s) = value2 * value3 / value1;
+                                    (*quality)(i, r, j, s) = d;
+                                }
+                            }
+                        });
                 }
             }
             break;
@@ -729,17 +726,17 @@ void Disaggregation<T, I>::approximate(const int& d) {
 
             for (const auto& ir : table->index_set().super_indices) {
                 for (const auto& js : table->index_set().super_indices) {
-                    for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
-                                          if (i_sub && r_sub && j_sub && s_sub) {
-                                              const T& value = (*proxies[d])(i, r, j, s);
-                                              if (!std::isnan(value)) {
-                                                  (*table)(i, r, j, s) = value;
-                                                  (*quality)(i, r, j, s) = d;
-                                              }
-                                          }
-                                      });
+                    for_all_sub<T, I>(
+                        ir.sector, ir.region, js.sector, js.region,
+                        [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool i_sub, bool r_sub, bool j_sub, bool s_sub) {
+                            if (i_sub && r_sub && j_sub && s_sub) {
+                                const T& value = (*proxies[d])(i, r, j, s);
+                                if (!std::isnan(value)) {
+                                    (*table)(i, r, j, s) = value;
+                                    (*quality)(i, r, j, s) = d;
+                                }
+                            }
+                        });
                 }
             }
             break;
@@ -760,8 +757,8 @@ void Disaggregation<T, I>::adjust(const int& d) {
                 T sum_of_exact = 0;
                 T sum_of_non_exact = 0;
                 for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                  [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                      const bool j_sub, const bool s_sub) {
+                                  [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool /* i_sub */, bool /* r_sub */,
+                                      bool /* j_sub */, bool /* s_sub */) {
                                       if ((*quality)(i, r, j, s) == d) {
                                           sum_of_exact += (*table)(i, r, j, s);
                                       } else {
@@ -771,16 +768,16 @@ void Disaggregation<T, I>::adjust(const int& d) {
                 T correction_factor = base / (sum_of_exact + sum_of_non_exact);
                 if (base > sum_of_exact && sum_of_non_exact > 0) {
                     for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) {
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool /* i_sub */, bool /* r_sub */,
+                                          bool /* j_sub */, bool /* s_sub */) {
                                           if ((*quality)(i, r, j, s) != d) {
                                               (*table)(i, r, j, s) = (base - sum_of_exact) * (*table)(i, r, j, s) / sum_of_non_exact;
                                           }
                                       });
                 } else if (correction_factor < 1 || correction_factor > 1) {
                     for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const bool i_sub, const bool r_sub,
-                                          const bool j_sub, const bool s_sub) { (*table)(i, r, j, s) = correction_factor * (*table)(i, r, j, s); });
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, bool /* i_sub */, bool /* r_sub */,
+                                          bool /* j_sub */, bool /* s_sub */) { (*table)(i, r, j, s) = correction_factor * (*table)(i, r, j, s); });
                 }
             }
         }

@@ -117,7 +117,7 @@ class Disaggregation {
 
     void approximate(const int& d);
     void adjust(const int& d);
-    void read_proxy_file(const std::string& filename, const int d, const int year);
+    void read_proxy_file(const std::string& filename, int d, I year);
 
   public:
     Disaggregation(const Table<T, I>* basetable_p);
