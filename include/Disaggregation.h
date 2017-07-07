@@ -83,12 +83,20 @@ class Disaggregation {
             size[3] = size4;
             data.resize(size1 * size2 * size3 * size4, std::numeric_limits<T>::quiet_NaN());
         };
-        T& operator()(const IndexPart<I>* i1) noexcept { return data[i1->level_index()]; };
-        T& operator()(const IndexPart<I>* i1, const IndexPart<I>* i2) noexcept { return data[i1->level_index() + (i2->level_index()) * size[0]]; };
-        T& operator()(const IndexPart<I>* i1, const IndexPart<I>* i2, const IndexPart<I>* i3) noexcept {
+        inline T& at(const IndexPart<I>* i1) { return data.at(i1->level_index()); };
+        inline T& at(const IndexPart<I>* i1, const IndexPart<I>* i2) { return data.at(i1->level_index() + (i2->level_index()) * size[0]); };
+        inline T& at(const IndexPart<I>* i1, const IndexPart<I>* i2, const IndexPart<I>* i3) {
+            return data.at(i1->level_index() + (i2->level_index() + (i3->level_index()) * size[1]) * size[0]);
+        };
+        inline T& at(const IndexPart<I>* i1, const IndexPart<I>* i2, const IndexPart<I>* i3, const IndexPart<I>* i4) {
+            return data.at(i1->level_index() + (i2->level_index() + (i3->level_index() + i4->level_index() * size[2]) * size[1]) * size[0]);
+        };
+        inline T& operator()(const IndexPart<I>* i1) { return data[i1->level_index()]; };
+        inline T& operator()(const IndexPart<I>* i1, const IndexPart<I>* i2) { return data[i1->level_index() + (i2->level_index()) * size[0]]; };
+        inline T& operator()(const IndexPart<I>* i1, const IndexPart<I>* i2, const IndexPart<I>* i3) {
             return data[i1->level_index() + (i2->level_index() + (i3->level_index()) * size[1]) * size[0]];
         };
-        T& operator()(const IndexPart<I>* i1, const IndexPart<I>* i2, const IndexPart<I>* i3, const IndexPart<I>* i4) noexcept {
+        inline T& operator()(const IndexPart<I>* i1, const IndexPart<I>* i2, const IndexPart<I>* i3, const IndexPart<I>* i4) {
             return data[i1->level_index() + (i2->level_index() + (i3->level_index() + i4->level_index() * size[2]) * size[1]) * size[0]];
         };
     };

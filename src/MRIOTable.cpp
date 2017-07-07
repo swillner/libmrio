@@ -542,24 +542,24 @@ void Table<T, I>::insert_region_offset_y(const SuperRegion<I>* r,
 template<typename T, typename I>
 void Table<T, I>::debug_out() const {
 #ifdef DEBUGOUT
-    cout << "\n====\n";
-    cout << std::setprecision(3) << std::fixed;
+    std::cout << "\n====\n";
+    std::cout << std::setprecision(3) << std::fixed;
     for (const auto& y : index_set_.total_indices) {
-        cout << index_set_.at(y.sector, y.region) << " " << y.sector->name << " " << (!y.sector->parent() ? "     " : y.sector->parent()->name) << " "
+        std::cout << index_set_.at(y.sector, y.region) << " " << y.sector->name << " " << (!y.sector->parent() ? "     " : y.sector->parent()->name) << " "
              << (y.sector->parent() ? *y.sector->parent() : *y.sector) << " " << (*y.sector) << " " << y.sector->level_index() << " " << y.region->name << " "
              << (!y.region->parent() ? "     " : y.region->parent()->name) << " " << (y.region->parent() ? *y.region->parent() : *y.region) << " "
              << (*y.region) << " " << y.region->level_index() << "  |  ";
         for (const auto& x : index_set_.total_indices) {
-            if (data[x.index * index_set_.size() + y.index] == 0) {
-                cout << " .   ";
+            if (data[x.index * index_set_.size() + y.index] <= 0) {
+                std::cout << " .   ";
             } else {
-                cout << data[x.index * index_set_.size() + y.index];
+                std::cout << data[x.index * index_set_.size() + y.index];
             }
-            cout << " ";
+            std::cout << " ";
         }
-        cout << "\n";
+        std::cout << "\n";
     }
-    cout << "====\n";
+    std::cout << "====\n";
 #endif
 }
 

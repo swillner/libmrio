@@ -69,7 +69,7 @@ class Sector : public IndexPart<I> {
     virtual SuperSector<I>* as_super() = 0;
     virtual const SuperSector<I>* as_super() const = 0;
     virtual const SuperSector<I>* super() const = 0;
-    virtual const bool has_sub() const = 0;
+    virtual bool has_sub() const = 0;
 };
 template<typename I>
 class SubSector : public Sector<I> {
@@ -86,7 +86,7 @@ class SubSector : public Sector<I> {
     SuperSector<I>* as_super() override { return nullptr; };
     const SuperSector<I>* as_super() const override { return nullptr; };
     const SuperSector<I>* parent() const override { return parent_; };
-    const bool has_sub() const override { return false; };
+    bool has_sub() const override { return false; };
 };
 template<typename I>
 class SuperRegion;
@@ -106,7 +106,7 @@ class SuperSector : public Sector<I> {
     SuperSector<I>* as_super() override { return this; };
     const SuperSector<I>* as_super() const override { return this; };
     const SuperSector<I>* parent() const override { return nullptr; };
-    const bool has_sub() const override { return sub_.size() > 0; };
+    bool has_sub() const override { return sub_.size() > 0; };
 };
 
 template<typename I>
@@ -123,7 +123,7 @@ class Region : public IndexPart<I> {
     virtual SuperRegion<I>* as_super() = 0;
     virtual const SuperRegion<I>* as_super() const = 0;
     virtual const SuperRegion<I>* super() const = 0;
-    virtual const bool has_sub() const = 0;
+    virtual bool has_sub() const = 0;
 };
 template<typename I>
 class SubRegion : public Region<I> {
@@ -140,7 +140,7 @@ class SubRegion : public Region<I> {
     SuperRegion<I>* as_super() override { return nullptr; };
     const SuperRegion<I>* as_super() const override { return nullptr; };
     const SuperRegion<I>* parent() const override { return parent_; };
-    const bool has_sub() const override { return false; };
+    bool has_sub() const override { return false; };
 };
 template<typename I>
 class SuperRegion : public Region<I> {
@@ -158,7 +158,7 @@ class SuperRegion : public Region<I> {
     SuperRegion<I>* as_super() override { return this; };
     const SuperRegion<I>* as_super() const override { return this; };
     const SuperRegion<I>* parent() const override { return nullptr; };
-    const bool has_sub() const override { return sub_.size() > 0; };
+    bool has_sub() const override { return sub_.size() > 0; };
 };
 
 template<typename I>
@@ -235,8 +235,8 @@ class IndexSet {
                     (subregion_it == (*superregion_it)->sub().end()) ? static_cast<Region<I>*>(superregion_it->get()) : static_cast<Region<I>*>(*subregion_it),
                     index};
         };
-        const bool operator==(const total_iterator& rhs) const { return index == rhs.index; };
-        const bool operator!=(const total_iterator& rhs) const { return !(*this == rhs); };
+        bool operator==(const total_iterator& rhs) const { return index == rhs.index; };
+        bool operator!=(const total_iterator& rhs) const { return !(*this == rhs); };
     };
     total_iterator tbegin() const { return total_iterator::begin(*this); };
     total_iterator tend() const { return total_iterator::end(*this); };
@@ -288,11 +288,11 @@ class IndexSet {
             return *this;
         };
         const Index operator*() const { return {*sector_it, region_it->get()}; };
-        const bool operator==(const super_iterator& rhs) const {
+        bool operator==(const super_iterator& rhs) const {
             return (region_it == rhs.region_it && sector_it == rhs.sector_it)
                    || (region_it == parent->superregions().end() && rhs.region_it == rhs.parent->superregions().end());
         };
-        const bool operator!=(const super_iterator& rhs) const { return !(*this == rhs); };
+        bool operator!=(const super_iterator& rhs) const { return !(*this == rhs); };
     };
     super_iterator sbegin() const { return super_iterator::begin(this); };
     super_iterator send() const { return super_iterator::end(this); };

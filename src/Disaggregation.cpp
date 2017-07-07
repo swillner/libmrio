@@ -56,6 +56,8 @@ void Disaggregation<T, I>::initialize(const settings::SettingsNode& settings) {
         } else {
             throw std::runtime_error("Unknown type");
         }
+    }
+    for (const auto& d : settings.as_sequence()) {
         for (const auto& proxy : d["proxies"].as_sequence()) {
             read_proxy_file(proxy["file"].as<std::string>(), proxy["level"].as<int>(), proxy["year"].as<int>());
         }
