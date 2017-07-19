@@ -1,3 +1,6 @@
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.832054-blue.svg)](http://dx.doi.org/10.5281/zenodo.832054)
+
+
 # Regional and sectoral disaggregation of multi-regional input-output tables
 
 C++-Implementation of the flexible algorithm for regional and sectoral disaggregation of multi-regional input-output tables as described in:
