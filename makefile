@@ -9,7 +9,7 @@ CPP_FILES := $(wildcard src/*.cpp)
 OBJ_FILES := $(patsubst src/%.cpp,bin/%.o,$(CPP_FILES))
 .SECONDARY: OBJ_FILES
 LD_FLAGS := -lstdc++ -lnetcdf_c++4 -lnetcdf
-CC_FLAGS := -std=c++11 -I include -I lib/settingsnode/include -I lib/settingsnode/lib/yaml-cpp/include -I lib/cpp-library -DWITH_NETCDF
+CC_FLAGS := -std=c++11 -I include -I lib/settingsnode/include -I lib/settingsnode/lib/yaml-cpp/include -I lib/cpp-library -DLIBMRIO_NETCDF
 LIBMRIO_VERSION := $(shell git describe --tags --dirty --always | sed -e 's/v\([0-9]\+\.[0-9]\+\)\.\(0-\([0-9]\+\)\)\?\(.*\)/\1.\3\4/')
 LIBMRIO_FLAGS := $(GCC_WARNINGS) -DLIBMRIO_VERSION='"$(LIBMRIO_VERSION)"'
 
