@@ -100,8 +100,12 @@ int main(int argc, char* argv[]) {
                         throw std::runtime_error("Could not open data file");
                     }
                     basetable.read_from_mrio(data, threshold);
+#ifdef LIBMRIO_NETCDF
                 } else if (type == "netcdf") {
                     basetable.read_from_netcdf(filename, threshold);
+#endif
+                } else {
+                    throw std::runtime_error("Unknown type '" + type + "'");
                 }
             }
             std::cout << "done" << std::endl;
@@ -132,8 +136,12 @@ int main(int argc, char* argv[]) {
                         throw std::runtime_error("Could not create output file");
                     }
                     disaggregation.refined_table().write_to_mrio(outfile);
+#ifdef LIBMRIO_NETCDF
                 } else if (type == "netcdf") {
                     disaggregation.refined_table().write_to_netcdf(filename);
+#endif
+                } else {
+                    throw std::runtime_error("Unknown type '" + type + "'");
                 }
             }
             std::cout << "done" << std::endl;

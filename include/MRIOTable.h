@@ -66,10 +66,14 @@ class Table {
     const T basesum(const SuperSector<I>* i, const SuperRegion<I>* r, const SuperSector<I>* j, const SuperRegion<I>* s) const noexcept;
     void write_to_csv(std::ostream& os) const;
     void write_to_mrio(std::ostream& os) const;
+#ifdef LIBMRIO_NETCDF
     void write_to_netcdf(const std::string& filename) const;
+#endif
     void read_from_csv(std::istream& indicesstream, std::istream& datastream, const T& threshold);
     void read_from_mrio(std::istream& instream, const T& threshold);
+#ifdef LIBMRIO_NETCDF
     void read_from_netcdf(const std::string& filename, const T& threshold);
+#endif
 
     inline T& at(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
         assert(index_set_.at(i, r) >= 0);

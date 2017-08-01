@@ -18,17 +18,19 @@
 */
 
 #include "MRIOTable.h"
-#include <ncDim.h>
-#include <ncFile.h>
-#include <ncVar.h>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
-#include <netcdf>
 #include <sstream>
 #include <stdexcept>
+#ifdef LIBMRIO_NETCDF
+#include <ncDim.h>
+#include <ncFile.h>
+#include <ncVar.h>
+#include <netcdf>
+#endif
 #include "MRIOIndexSet.h"
 #include "csv-parser.h"
 
@@ -254,6 +256,7 @@ void Table<T, I>::write_to_mrio(std::ostream& outstream) const {
     }
 }
 
+#ifdef LIBMRIO_NETCDF
 template<typename T, typename I>
 void Table<T, I>::read_from_netcdf(const std::string& filename, const T& threshold) {
     netCDF::NcFile file(filename, netCDF::NcFile::read);
@@ -335,7 +338,9 @@ void Table<T, I>::read_from_netcdf(const std::string& filename, const T& thresho
     }
     index_set_.rebuild_indices();
 }
+#endif
 
+#ifdef LIBMRIO_NETCDF
 template<typename T, typename I>
 void Table<T, I>::write_to_netcdf(const std::string& filename) const {
     debug_out();
@@ -389,6 +394,7 @@ void Table<T, I>::write_to_netcdf(const std::string& filename) const {
     flows_var.setFill<T>(true, std::numeric_limits<T>::quiet_NaN());
     flows_var.putVar(&data[0]);
 }
+#endif
 
 template<typename T, typename I>
 void Table<T, I>::insert_sector_offset_x_y(const SuperSector<I>* i, const I& i_regions_count, const I& subsectors_count) {
@@ -546,9 +552,9 @@ void Table<T, I>::debug_out() const {
     std::cout << std::setprecision(3) << std::fixed;
     for (const auto& y : index_set_.total_indices) {
         std::cout << index_set_.at(y.sector, y.region) << " " << y.sector->name << " " << (!y.sector->parent() ? "     " : y.sector->parent()->name) << " "
-             << (y.sector->parent() ? *y.sector->parent() : *y.sector) << " " << (*y.sector) << " " << y.sector->level_index() << " " << y.region->name << " "
-             << (!y.region->parent() ? "     " : y.region->parent()->name) << " " << (y.region->parent() ? *y.region->parent() : *y.region) << " "
-             << (*y.region) << " " << y.region->level_index() << "  |  ";
+                  << (y.sector->parent() ? *y.sector->parent() : *y.sector) << " " << (*y.sector) << " " << y.sector->level_index() << " " << y.region->name
+                  << " " << (!y.region->parent() ? "     " : y.region->parent()->name) << " " << (y.region->parent() ? *y.region->parent() : *y.region) << " "
+                  << (*y.region) << " " << y.region->level_index() << "  |  ";
         for (const auto& x : index_set_.total_indices) {
             if (data[x.index * index_set_.size() + y.index] <= 0) {
                 std::cout << " .   ";
