@@ -1,5 +1,4 @@
-bin/
-mrio_disaggregate
+/build/
 GPATH
 GRTAGS
 GSYMS

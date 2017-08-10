@@ -31,7 +31,7 @@ using T = double;  // Data type
 
 static void print_usage(const char* program_name) {
     std::cerr << "Regional and sectoral disaggregation of multi-regional input-output tables\n"
-                 "Version:  " LIBMRIO_VERSION
+                 "Version:  " MRIO_DISAGGREGATE_VERSION
                  "\n"
                  "Author:   Sven Willner <sven.willner@pik-potsdam.de>\n\n"
                  "Algorithm described in:\n"
@@ -41,7 +41,7 @@ static void print_usage(const char* program_name) {
                  "   DOI: 10.1080/09535314.2014.987731\n\n"
                  "Source:   https://github.com/swillner/libmrio\n"
                  "License:  AGPL, (c) 2014-2017 Sven Willner (see LICENSE file)\n\n"
-                 "Usage: "
+                 "Usage:    "
               << program_name
               << " (<option> | <settingsfile>)\n"
                  "Options:\n"
@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
         const std::string arg = argv[1];
         if (arg.length() > 1 && arg[0] == '-') {
             if (arg == "--version" || arg == "-v") {
-                std::cout << LIBMRIO_VERSION << std::endl;
+                std::cout << MRIO_DISAGGREGATE_VERSION << std::endl;
             } else if (arg == "--help" || arg == "-h") {
                 print_usage(argv[0]);
             } else {
@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
                         throw std::runtime_error("Could not open data file");
                     }
                     basetable.read_from_mrio(data, threshold);
-#ifdef LIBMRIO_NETCDF
+#ifdef LIBMRIO_WITH_NETCDF
                 } else if (type == "netcdf") {
                     basetable.read_from_netcdf(filename, threshold);
 #endif
@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
                         throw std::runtime_error("Could not create output file");
                     }
                     disaggregation.refined_table().write_to_mrio(outfile);
-#ifdef LIBMRIO_NETCDF
+#ifdef LIBMRIO_WITH_NETCDF
                 } else if (type == "netcdf") {
                     disaggregation.refined_table().write_to_netcdf(filename);
 #endif

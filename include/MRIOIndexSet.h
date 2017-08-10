@@ -29,8 +29,10 @@
 #ifdef DEBUG
 #include <cassert>
 #else
+#ifndef assert
 #define assert(a) \
     {}
+#endif
 #endif
 
 namespace mrio {

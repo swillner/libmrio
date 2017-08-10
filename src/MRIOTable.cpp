@@ -25,7 +25,7 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
-#ifdef LIBMRIO_NETCDF
+#ifdef LIBMRIO_WITH_NETCDF
 #include <ncDim.h>
 #include <ncFile.h>
 #include <ncVar.h>
@@ -256,7 +256,7 @@ void Table<T, I>::write_to_mrio(std::ostream& outstream) const {
     }
 }
 
-#ifdef LIBMRIO_NETCDF
+#ifdef LIBMRIO_WITH_NETCDF
 template<typename T, typename I>
 void Table<T, I>::read_from_netcdf(const std::string& filename, const T& threshold) {
     netCDF::NcFile file(filename, netCDF::NcFile::read);
@@ -340,7 +340,7 @@ void Table<T, I>::read_from_netcdf(const std::string& filename, const T& thresho
 }
 #endif
 
-#ifdef LIBMRIO_NETCDF
+#ifdef LIBMRIO_WITH_NETCDF
 template<typename T, typename I>
 void Table<T, I>::write_to_netcdf(const std::string& filename) const {
     debug_out();
