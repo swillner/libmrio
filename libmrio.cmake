@@ -1,3 +1,7 @@
+if(TARGET libmrio)
+  return()
+endif()
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
 add_library(libmrio STATIC ${CMAKE_CURRENT_LIST_DIR}/src/Disaggregation.cpp ${CMAKE_CURRENT_LIST_DIR}/src/MRIOIndexSet.cpp ${CMAKE_CURRENT_LIST_DIR}/src/MRIOTable.cpp)
