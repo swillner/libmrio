@@ -1,4 +1,4 @@
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.832054-blue.svg)](http://dx.doi.org/10.5281/zenodo.832054)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.832052-blue.svg)](http://dx.doi.org/10.5281/zenodo.832052)
 
 
 # Regional and sectoral disaggregation of multi-regional input-output tables
@@ -11,22 +11,28 @@ L. Wenz, S.N. Willner, A. Radebach, R. Bierkandt, J.C. Steckel, A. Levermann
 
 It includes a library for handling heterogeneous MRIO tables with up to one level of hierarchy. If you want to use it and have trouble with it just drop me an [email](mailto:sven.willner@pik-potsdam.de).
 
-## Dependencies
-
-The implementation makes use of C++11 and the [https://github.com/Unidata/netcdf-cxx4](NetCDF-CXX4-library) (e.g. package `libnetcdf-c++4-dev` in Ubuntu/Debian).
-
-It also depends on my [https://github.com/swillner/cpp-library](CSV parser) and [https://github.com/swillner/settingsnode](Settings wrapper). These are included as submodules, so make sure to recursively clone this repository:
-```
-git clone https://github.com/swillner/libmrio.git --recursive
-```
-
 ## Compiling
 
-A makefile is provided, just use
+Just use cmake:
 ```
-make
+mkdir build
+cd build
+cmake ..
 ```
-to create the `mrio_disaggregate` binary. Compiler has to support C++11, only tested with GCC.
+to create the `mrio_disaggregate` binary. Compiler has to support C++11.
+
+To use `libmrio` as a static library you can include `libmrio.cmake` from `cmake`.
+
+## Dependencies
+
+Libmrio depends on my [https://github.com/swillner/cpp-library](CSV parser) and [https://github.com/swillner/settingsnode](Settings wrapper). These are included as subtrees.
+
+It also uses [https://github.com/jbeder/yaml-cpp.git](yaml-cpp), which you either need to have installed or get as a submodule:
+```
+git submodule update --init --recursive
+```
+
+The implementation optionally uses the [https://github.com/Unidata/netcdf-cxx4](NetCDF-CXX4-library) (e.g. package `libnetcdf-c++4-dev` in Ubuntu/Debian). Its use is controlled via the cmake option `LIBMRIO_WITH_NETCDF` (e.g. use `ccmake ..`).
 
 ## Usage
 
