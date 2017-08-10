@@ -1,6 +1,3 @@
-[submodule "lib/settingsnode"]
-	path = lib/settingsnode
-	url = https://github.com/swillner/settingsnode.git
-[submodule "lib/cpp-library"]
-	path = lib/cpp-library
-	url = https://github.com/swillner/cpp-library.git
+[submodule "lib/settingsnode/lib/yaml-cpp"]
+	path = lib/settingsnode/lib/yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp.git
