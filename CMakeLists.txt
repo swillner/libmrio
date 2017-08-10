@@ -18,6 +18,7 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/.git" AND IS_DIRECTORY "${CMAKE_SOURCE_DIR}/.git"
     execute_process(COMMAND git describe --tags --dirty --always OUTPUT_VARIABLE GIT_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
     string(REGEX REPLACE "^v([0-9]+\\.[0-9]+)\\.(0-)?([0-9]*)((-.+)?)$" "\\1.\\3\\4" MRIO_DISAGGREGATE_VERSION ${GIT_OUTPUT})
   endif()
+  mark_as_advanced(HAVE_GIT)
 endif()
 message(STATUS "Program version: ${MRIO_DISAGGREGATE_VERSION}")
 
