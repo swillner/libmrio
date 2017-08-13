@@ -19,7 +19,7 @@ if(LIBMRIO_WITH_NETCDF)
   message(STATUS "NetCDF_c++4 library: ${NETCDF_CPP4_LIBRARY}")
   target_link_libraries(libmrio netcdf_c++4)
 
-  target_compile_definitions(libmrio PRIVATE LIBMRIO_WITH_NETCDF)
+  target_compile_definitions(libmrio PUBLIC LIBMRIO_WITH_NETCDF)
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Release" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo" OR CMAKE_BUILD_TYPE STREQUAL "MinSizeRel")
