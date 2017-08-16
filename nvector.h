@@ -18,12 +18,15 @@
 #ifndef NVECTOR_H
 #define NVECTOR_H
 
+#include <array>
+#include <cstddef>
+#include <stdexcept>
 #include <vector>
 
 template<typename T, unsigned char dim, class Storage = std::vector<T>>
 class nvector {
   protected:
-    std::array<size_t, dim> dims;
+    std::array<std::size_t, dim> dims;
     Storage data;
 
     template<unsigned char c, typename... Args>
@@ -65,7 +68,7 @@ class nvector {
 
   public:
     template<typename... Args>
-    nvector(T initial_value, Args... args) {
+    nvector(const T& initial_value, Args... args) {
         initialize_<0>(initial_value, 1, args...);
     }
 
@@ -79,7 +82,15 @@ class nvector {
         return at_<0>(0, args...);
     }
 
-    void reset(T initial_value) { std::fill(std::begin(data), std::end(data), initial_value); }
+    template<unsigned char c>
+    inline std::size_t size() {
+        static_assert(c < dim, "dimension index out of bounds");
+        return dims[c];
+    }
+
+    inline std::size_t size(std::size_t i) { return dims.at(i); }
+
+    void reset(const T& initial_value) { std::fill(std::begin(data), std::end(data), initial_value); }
 
     inline typename Storage::iterator begin() { return std::begin(data); };
     inline typename Storage::iterator end() { return std::end(data); };
