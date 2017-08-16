@@ -43,3 +43,7 @@ target_link_libraries(mrio_disaggregate libmrio)
 
 include(lib/settingsnode/settingsnode.cmake)
 target_link_libraries(mrio_disaggregate settingsnode)
+
+include(cmake/helpers.cmake)
+add_cpp_tools(mrio_disaggregate)
+add_cpp_tools(libmrio)

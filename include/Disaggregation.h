@@ -20,12 +20,34 @@
 #ifndef LIBMRIO_DISAGGREGATION_H
 #define LIBMRIO_DISAGGREGATION_H
 
-#include <cmath>
+#include <cstddef>
 #include <limits>
-#include <unordered_map>
-#include "MRIOTable.h"
-#include "csv-parser.h"
-#include "settingsnode.h"
+#include <memory>
+#include <string>
+#include <vector>
+
+namespace csv {
+class Parser;
+}
+namespace mrio {
+template<typename I>
+class IndexPart;
+}
+namespace mrio {
+template<typename I>
+class Region;
+}
+namespace mrio {
+template<typename I>
+class Sector;
+}
+namespace mrio {
+template<typename T, typename I>
+class Table;
+}
+namespace settings {
+class SettingsNode;
+}
 
 namespace mrio {
 
@@ -126,6 +148,6 @@ class Disaggregation {
     void initialize(const settings::SettingsNode& settings);
     const Table<T, I>& refined_table() const { return *table; }
 };
-}
+}  // namespace mrio
 
 #endif

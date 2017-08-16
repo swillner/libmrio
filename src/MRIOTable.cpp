@@ -18,20 +18,17 @@
 */
 
 #include "MRIOTable.h"
-#include <algorithm>
-#include <cmath>
-#include <cstdlib>
-#include <iomanip>
-#include <iostream>
-#include <sstream>
+#include <cstdint>
+#include <memory>
+#include <sstream>  // IWYU pragma: keep
 #include <stdexcept>
+#include <tuple>
 #ifdef LIBMRIO_WITH_NETCDF
 #include <ncDim.h>
 #include <ncFile.h>
+#include <ncType.h>
 #include <ncVar.h>
-#include <netcdf>
 #endif
-#include "MRIOIndexSet.h"
 #include "csv-parser.h"
 
 namespace mrio {
@@ -104,7 +101,6 @@ const T Table<T, I>::basesum(const SuperSector<I>* i, const SuperRegion<I>* r, c
 
 template<typename T, typename I>
 void Table<T, I>::read_indices_from_csv(std::istream& indicesstream) {
-    std::string cols[2];
     try {
         csv::Parser parser(indicesstream);
         for (const auto& row : parser) {
@@ -261,7 +257,7 @@ template<typename T, typename I>
 void Table<T, I>::read_from_netcdf(const std::string& filename, const T& threshold) {
     netCDF::NcFile file(filename, netCDF::NcFile::read);
 
-    size_t sectors_count = file.getDim("sector").getSize();
+    std::size_t sectors_count = file.getDim("sector").getSize();
     {
         netCDF::NcVar sectors_var = file.getVar("sector");
         std::vector<const char*> sectors_val(sectors_count);
@@ -271,7 +267,7 @@ void Table<T, I>::read_from_netcdf(const std::string& filename, const T& thresho
         }
     }
 
-    size_t regions_count = file.getDim("region").getSize();
+    std::size_t regions_count = file.getDim("region").getSize();
     {
         netCDF::NcVar regions_var = file.getVar("region");
         std::vector<const char*> regions_val(regions_count);
@@ -318,7 +314,7 @@ void Table<T, I>::read_from_netcdf(const std::string& filename, const T& thresho
             }
         }
     } else {
-        size_t index_size = index_dim.getSize();
+        std::size_t index_size = index_dim.getSize();
         netCDF::NcVar index_sector_var = file.getVar("index_sector");
         std::vector<uint32_t> index_sector_val(index_size);
         index_sector_var.getVar(&index_sector_val[0]);
@@ -625,7 +621,7 @@ void Table<T, I>::insert_subregions(const std::string& name, const std::vector<s
     debug_out();
 }
 
-template class Table<float, size_t>;
-template class Table<double, size_t>;
-template class Table<int, size_t>;
-}
+template class Table<float, std::size_t>;
+template class Table<double, std::size_t>;
+template class Table<int, std::size_t>;
+}  // namespace mrio

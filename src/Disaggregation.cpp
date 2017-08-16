@@ -18,12 +18,14 @@
 */
 
 #include "Disaggregation.h"
-#include <cstdlib>
+#include <cmath>
 #include <fstream>
 #include <functional>
-#include <iostream>
 #include <stdexcept>
 #include <string>
+#include "MRIOTable.h"
+#include "csv-parser.h"
+#include "settingsnode.h"
 
 namespace mrio {
 
@@ -301,7 +303,7 @@ void Disaggregation<T, I>::refine() {
 }
 
 template<typename T, typename I>
-void for_all_sub(
+static void for_all_sub(
     const Sector<I>* i,
     const Region<I>* r,
     const Sector<I>* j,
@@ -784,6 +786,6 @@ void Disaggregation<T, I>::adjust(const int& d) {
     }
 }
 
-template class Disaggregation<double, size_t>;
-template class Disaggregation<float, size_t>;
-}
+template class Disaggregation<double, std::size_t>;
+template class Disaggregation<float, std::size_t>;
+}  // namespace mrio

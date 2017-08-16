@@ -22,7 +22,6 @@
 
 #include <iostream>
 #include <memory>
-#include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -112,8 +111,6 @@ class SuperSector : public Sector<I> {
 };
 
 template<typename I>
-class SuperRegion;
-template<typename I>
 class Region : public IndexPart<I> {
     friend class IndexSet<I>;
 
@@ -188,7 +185,7 @@ class IndexSet {
         typename std::vector<std::unique_ptr<SuperRegion<I>>>::const_iterator superregion_it;
         typename std::vector<SubSector<I>*>::const_iterator subsector_it;
         typename std::vector<SubRegion<I>*>::const_iterator subregion_it;
-        total_iterator(const IndexSet& index_set_p) : index_set(index_set_p), index(0){};
+        explicit total_iterator(const IndexSet& index_set_p) : index_set(index_set_p), index(0){};
 
       public:
         struct Index {
@@ -196,7 +193,6 @@ class IndexSet {
             const Region<I>* region;
             const I& index;
         };
-        typedef std::forward_iterator_tag iterator_category;
         static total_iterator begin(const IndexSet& index_set) {
             total_iterator res(index_set);
             res.superregion_it = index_set.superregions().begin();
@@ -247,7 +243,7 @@ class IndexSet {
         const IndexSet& index_set;
 
       public:
-        TotalIndices(const IndexSet& index_set_p) : index_set(index_set_p){};
+        explicit TotalIndices(const IndexSet& index_set_p) : index_set(index_set_p){};
         total_iterator begin() const { return index_set.tbegin(); };
         total_iterator end() const { return index_set.tend(); };
     };
@@ -258,14 +254,13 @@ class IndexSet {
         const IndexSet* parent;
         typename std::vector<SuperSector<I>*>::const_iterator sector_it;
         typename std::vector<std::unique_ptr<SuperRegion<I>>>::const_iterator region_it;
-        super_iterator(const IndexSet* parent_p) : parent(parent_p){};
+        explicit super_iterator(const IndexSet* parent_p) : parent(parent_p){};
 
       public:
         struct Index {
             const SuperSector<I>* sector;
             const SuperRegion<I>* region;
         };
-        typedef std::forward_iterator_tag iterator_category;
         static super_iterator begin(const IndexSet* parent) {
             super_iterator res(parent);
             res.region_it = parent->superregions().begin();
@@ -303,7 +298,7 @@ class IndexSet {
         const IndexSet& index_set;
 
       public:
-        SuperIndices(const IndexSet& index_set_p) : index_set(index_set_p){};
+        explicit SuperIndices(const IndexSet& index_set_p) : index_set(index_set_p){};
         super_iterator begin() const { return index_set.sbegin(); };
         super_iterator end() const { return index_set.send(); };
     };
@@ -364,6 +359,6 @@ class IndexSet {
         return indices_[sector_p->level_index() * superregions_.size() + region_p->level_index()];
     };
 };
-}
+}  // namespace mrio
 
 #endif

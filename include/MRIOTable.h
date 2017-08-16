@@ -20,6 +20,7 @@
 #ifndef LIBMRIO_MRIOTABLE_H
 #define LIBMRIO_MRIOTABLE_H
 
+#include <iosfwd>
 #include <limits>
 #include <string>
 #include <vector>
@@ -139,6 +140,6 @@ class Table {
     const std::vector<T>& raw_data() const { return data; }
     void debug_out() const;  // TODO
 };
-}
+}  // namespace mrio
 
 #endif

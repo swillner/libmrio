@@ -18,8 +18,8 @@
 */
 
 #include "MRIOIndexSet.h"
-#include <algorithm>
-#include <limits>
+#include <algorithm>  // IWYU pragma: keep
+#include <stdexcept>
 
 namespace mrio {
 
@@ -84,7 +84,7 @@ template<typename I>
 void IndexSet<I>::add_index(const std::string& sector_name, const std::string& region_name) {
     SuperSector<I>* sector_ = add_sector(sector_name);
     SuperRegion<I>* region_ = add_region(region_name);
-    if (find(region_->sectors_.begin(), region_->sectors_.end(), sector_) != region_->sectors_.end()) {
+    if (std::find(region_->sectors_.begin(), region_->sectors_.end(), sector_) != region_->sectors_.end()) {
         throw std::runtime_error("Combination of sector and region already given");
     }
     add_index(sector_, region_);
@@ -273,5 +273,5 @@ void IndexSet<I>::insert_subregions(const std::string& name, const std::vector<s
     rebuild_indices();
 }
 
-template class IndexSet<size_t>;
-}
+template class IndexSet<std::size_t>;
+}  // namespace mrio
