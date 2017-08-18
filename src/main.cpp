@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
             {
                 const std::string& type = settings["basetable"]["type"].as<std::string>();
                 const std::string& filename = settings["basetable"]["file"].as<std::string>();
-                const T threshold = settings["basetable"]["threshold"].as<T>();
+                const auto threshold = settings["basetable"]["threshold"].as<T>();
                 if (type == "csv") {
                     std::ifstream indices(settings["basetable"]["index"].as<std::string>());
                     if (!indices) {
