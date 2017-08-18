@@ -25,6 +25,7 @@
 #include "Disaggregation.h"
 #include "MRIOTable.h"
 #include "settingsnode.h"
+#include "version.h"
 
 // Define types used in templates
 using I = std::size_t;  // Index type
