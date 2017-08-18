@@ -105,7 +105,7 @@ class Parser {
             template<typename T>
             inline T read() {
                 return p.read<T>();
-            };
+            }
         };
 
         class iterator {
@@ -201,7 +201,7 @@ class Parser {
         T&& tmp = read<T>();
         next_col();
         return tmp;
-    };
+    }
 
     template<typename T1, typename T2, typename... Ts>
     inline std::tuple<T1, T2, Ts...> read() {
@@ -211,7 +211,7 @@ class Parser {
         --col_;
         col_has_been_read = true;
         return res;
-    };
+    }
 
     inline bool next_col();
 
@@ -734,6 +734,6 @@ inline Parser& operator>>(Parser& p, T& obj) {
     obj = p.read<T>();
     return p;
 }
-}
+}  // namespace csv
 
 #endif
