@@ -64,11 +64,11 @@ class Table {
     };
     inline const IndexSet<I>& index_set() const { return index_set_; };
     void insert_subsectors(const std::string& name, const std::vector<std::string>& subsectors);
-    void insert_subregions(const std::string& name, const std::vector<std::string>& subsectors);
+    void insert_subregions(const std::string& name, const std::vector<std::string>& subregions);
     const T sum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept;
     const T basesum(const SuperSector<I>* i, const SuperRegion<I>* r, const SuperSector<I>* j, const SuperRegion<I>* s) const noexcept;
-    void write_to_csv(std::ostream& os) const;
-    void write_to_mrio(std::ostream& os) const;
+    void write_to_csv(std::ostream& outstream) const;
+    void write_to_mrio(std::ostream& outstream) const;
 #ifdef LIBMRIO_WITH_NETCDF
     void write_to_netcdf(const std::string& filename) const;
 #endif

@@ -37,36 +37,36 @@ template<typename T, typename I>
 const T Table<T, I>::sum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
     T res = 0;
     if (i == nullptr) {
-        for (auto& i_ : index_set_.supersectors()) {
-            res += sum(i_.get(), r, j, s);
+        for (auto& i_l : index_set_.supersectors()) {
+            res += sum(i_l.get(), r, j, s);
         }
     } else if (i->has_sub()) {
-        for (auto& i_ : i->as_super()->sub()) {
-            res += sum(i_, r, j, s);
+        for (auto& i_l : i->as_super()->sub()) {
+            res += sum(i_l, r, j, s);
         }
     } else if (r == nullptr) {
-        for (auto& r_ : (i->as_super() ? i->as_super() : i->parent())->regions()) {
-            res += sum(i, r_, j, s);
+        for (auto& r_l : (i->as_super() ? i->as_super() : i->parent())->regions()) {
+            res += sum(i, r_l, j, s);
         }
     } else if (r->has_sub()) {
-        for (auto& r_ : r->as_super()->sub()) {
-            res += sum(i, r_, j, s);
+        for (auto& r_l : r->as_super()->sub()) {
+            res += sum(i, r_l, j, s);
         }
     } else if (j == nullptr) {
-        for (auto& j_ : index_set_.supersectors()) {
-            res += sum(i, r, j_.get(), s);
+        for (auto& j_l : index_set_.supersectors()) {
+            res += sum(i, r, j_l.get(), s);
         }
     } else if (j->has_sub()) {
-        for (auto& j_ : j->as_super()->sub()) {
-            res += sum(i, r, j_, s);
+        for (auto& j_l : j->as_super()->sub()) {
+            res += sum(i, r, j_l, s);
         }
     } else if (s == nullptr) {
-        for (auto& s_ : (j->as_super() ? j->as_super() : j->parent())->regions()) {
-            res += sum(i, r, j, s_);
+        for (auto& s_l : (j->as_super() ? j->as_super() : j->parent())->regions()) {
+            res += sum(i, r, j, s_l);
         }
     } else if (s->has_sub()) {
-        for (auto& s_ : s->as_super()->sub()) {
-            res += sum(i, r, j, s_);
+        for (auto& s_l : s->as_super()->sub()) {
+            res += sum(i, r, j, s_l);
         }
     } else {
         return (*this)(i, r, j, s);
@@ -78,20 +78,20 @@ template<typename T, typename I>
 const T Table<T, I>::basesum(const SuperSector<I>* i, const SuperRegion<I>* r, const SuperSector<I>* j, const SuperRegion<I>* s) const noexcept {
     T res = 0;
     if (i == nullptr) {
-        for (auto& i_ : index_set_.supersectors()) {
-            res += basesum(i_.get(), r, j, s);
+        for (auto& i_l : index_set_.supersectors()) {
+            res += basesum(i_l.get(), r, j, s);
         }
     } else if (r == nullptr) {
-        for (auto& r_ : i->regions()) {
-            res += basesum(i, r_, j, s);
+        for (auto& r_l : i->regions()) {
+            res += basesum(i, r_l, j, s);
         }
     } else if (j == nullptr) {
-        for (auto& j_ : index_set_.supersectors()) {
-            res += basesum(i, r, j_.get(), s);
+        for (auto& j_l : index_set_.supersectors()) {
+            res += basesum(i, r, j_l.get(), s);
         }
     } else if (s == nullptr) {
-        for (auto& s_ : j->regions()) {
-            res += basesum(i, r, j, s_);
+        for (auto& s_l : j->regions()) {
+            res += basesum(i, r, j, s_l);
         }
     } else {
         return this->base(i, r, j, s);
@@ -103,10 +103,10 @@ template<typename T, typename I>
 void Table<T, I>::read_indices_from_csv(std::istream& indicesstream) {
     try {
         csv::Parser parser(indicesstream);
-        for (const auto& row : parser) {
+        do {
             const std::tuple<std::string, std::string> c = parser.read<std::string, std::string>();
             index_set_.add_index(std::get<1>(c), std::get<0>(c));
-        }
+        } while (parser.next_row());
         index_set_.rebuild_indices();
     } catch (const csv::parser_exception& ex) {
         std::stringstream s;
@@ -171,40 +171,40 @@ void Table<T, I>::write_to_csv(std::ostream& outstream) const {
 template<typename T, typename I>
 void Table<T, I>::read_from_mrio(std::istream& instream, const T& threshold) {
     unsigned char c;
-    instream.read((char*)&c, sizeof(c));
+    instream >> c;
     if (c != sizeof(I)) {
         throw std::runtime_error("index type size mismatch");
     }
-    instream.read((char*)&c, sizeof(c));
+    instream >> c;
     if (c != sizeof(T)) {
         throw std::runtime_error("data type size mismatch");
     }
     I sectors_count;
-    instream.read((char*)&sectors_count, sizeof(I));
+    instream >> sectors_count;
     std::string s;
     for (I i = 0; i < sectors_count; i++) {
         getline(instream, s, '\0');
         index_set_.add_sector(s);
     }
     I regions_count;
-    instream.read((char*)&regions_count, sizeof(I));
+    instream >> regions_count;
     for (I i = 0; i < regions_count; i++) {
         getline(instream, s, '\0');
         index_set_.add_region(s);
     }
     I index_count;
-    instream.read((char*)&index_count, sizeof(I));
+    instream >> index_count;
     for (I i = 0; i < index_count; i++) {
         I sector_index, region_index;
-        instream.read((char*)&sector_index, sizeof(I));
-        instream.read((char*)&region_index, sizeof(I));
+        instream >> sector_index;
+        instream >> region_index;
         index_set_.add_index(index_set_.supersectors()[sector_index].get(), index_set_.superregions()[region_index].get());
     }
     index_set_.rebuild_indices();
     data.resize(index_set_.size() * index_set_.size(), 0);
     T val;
     for (auto& d : data) {
-        instream.read((char*)&val, sizeof(T));
+        instream >> val;
         if (val > threshold) {
             d = val;
         }
@@ -215,10 +215,10 @@ template<typename T, typename I>
 void Table<T, I>::write_to_mrio(std::ostream& outstream) const {
     debug_out();
     unsigned char c = sizeof(I);
-    outstream.write((const char*)&c, sizeof(c));
+    outstream << c;
     c = sizeof(T);
-    outstream.write((const char*)&c, sizeof(c));
-    outstream.write((const char*)&index_set_.total_sectors_count(), sizeof(I));
+    outstream << c;
+    outstream << index_set_.total_sectors_count();
     c = 0;
     for (const auto& sector : index_set_.supersectors()) {
         if (sector->has_sub()) {
@@ -229,7 +229,7 @@ void Table<T, I>::write_to_mrio(std::ostream& outstream) const {
             outstream.write(sector->name.c_str(), sector->name.size() + 1);
         }
     }
-    outstream.write((const char*)&index_set_.total_regions_count(), sizeof(I));
+    outstream << index_set_.total_regions_count();
     for (const auto& region : index_set_.superregions()) {
         if (region->has_sub()) {
             for (const auto& subregion : region->sub()) {
@@ -240,14 +240,14 @@ void Table<T, I>::write_to_mrio(std::ostream& outstream) const {
         }
     }
 
-    outstream.write((const char*)&index_set_.size(), sizeof(I));
+    outstream << index_set_.size();
     for (const auto& row : index_set_.total_indices) {
-        outstream.write((const char*)&row.sector->total_index(), sizeof(I));
-        outstream.write((const char*)&row.region->total_index(), sizeof(I));
+        outstream << row.sector->total_index();
+        outstream << row.region->total_index();
     }
     for (const auto& row : index_set_.total_indices) {
         for (const auto& col : index_set_.total_indices) {
-            outstream.write((const char*)&(*this)(row.index, col.index), sizeof(T));
+            outstream << (*this)(row.index, col.index);
         }
     }
 }
@@ -281,17 +281,17 @@ void Table<T, I>::read_from_netcdf(const std::string& filename, const T& thresho
     if (index_dim.isNull()) {
         data.resize(regions_count * sectors_count * regions_count * sectors_count);
         if (file.getVar("flows").getDims()[0].getName() == "sector") {
-            std::vector<T> data_(regions_count * sectors_count * regions_count * sectors_count);
-            file.getVar("flows").getVar(&data_[0]);
+            std::vector<T> data_l(regions_count * sectors_count * regions_count * sectors_count);
+            file.getVar("flows").getVar(&data_l[0]);
             auto d = data.begin();
             for (const auto& region_from : index_set_.superregions()) {
                 for (const auto& sector_from : index_set_.supersectors()) {
                     index_set_.add_index(sector_from.get(), region_from.get());
                     for (const auto& region_to : index_set_.superregions()) {
                         for (const auto& sector_to : index_set_.supersectors()) {
-                            const T& d_ = data_[((*sector_from * regions_count + *region_from) * sectors_count + *sector_to) * regions_count + *region_to];
-                            if (d_ > threshold) {
-                                *d = d_;
+                            const T& d_l = data_l[((*sector_from * regions_count + *region_from) * sectors_count + *sector_to) * regions_count + *region_to];
+                            if (d_l > threshold) {
+                                *d = d_l;
                             } else {
                                 *d = 0;
                             }
