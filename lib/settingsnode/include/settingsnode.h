@@ -51,18 +51,16 @@ class SettingsNode;
 
 class Inner {
     friend class SettingsNode;
+    friend std::ostream& operator<<(std::ostream& os, const SettingsNode& node);
 
   protected:
     virtual bool as_bool() const = 0;
-    virtual bool as_bool(bool fallback) const = 0;
     virtual int as_int() const = 0;
-    virtual int as_int(int fallback) const = 0;
+    virtual int as_uint() const = 0;
+    virtual std::size_t as_size_t() const = 0;
     virtual double as_double() const = 0;
-    virtual double as_double(double fallback) const = 0;
     virtual float as_float() const { return as_double(); }
-    virtual float as_float(float fallback) const { return as_double(fallback); }
     virtual std::string as_string() const = 0;
-    virtual std::string as_string(const std::string& fallback) const = 0;
 
     virtual Inner* get(const char* key) const = 0;
     virtual Inner* get(const std::string& key) const = 0;
@@ -72,6 +70,7 @@ class Inner {
     virtual bool is_map() const = 0;
     virtual bool is_scalar() const = 0;
     virtual bool is_sequence() const = 0;
+    virtual std::ostream& to_stream(std::ostream& os) const = 0;
 
     class map_iterator {
       public:
@@ -99,15 +98,12 @@ class InnerYAML : public Inner {
     YAML::Node node;
     explicit InnerYAML(const YAML::Node node_p) : node(node_p){};
     inline bool as_bool() const override { return node.as<bool>(); }
-    inline bool as_bool(bool fallback) const override { return node.as<bool>(fallback); }
     inline int as_int() const override { return node.as<int>(); }
-    inline int as_int(int fallback) const override { return node.as<int>(fallback); }
+    inline int as_uint() const override { return node.as<unsigned int>(); }
+    inline std::size_t as_size_t() const override { return node.as<std::size_t>(); }
     inline double as_double() const override { return node.as<double>(); }
-    inline double as_double(double fallback) const override { return node.as<double>(fallback); }
     inline float as_float() const override { return node.as<float>(); }
-    inline float as_float(float fallback) const override { return node.as<float>(fallback); }
     inline std::string as_string() const override { return node.as<std::string>(); }
-    inline std::string as_string(const std::string& fallback) const override { return node.as<std::string>(fallback); }
 
     inline Inner* get(const char* key) const override { return new InnerYAML{node[key]}; }
     inline Inner* get(const std::string& key) const override { return new InnerYAML{node[key]}; }
@@ -117,6 +113,7 @@ class InnerYAML : public Inner {
     inline bool is_map() const override { return node.IsMap(); }
     inline bool is_scalar() const override { return node.IsScalar(); }
     inline bool is_sequence() const override { return node.IsSequence(); }
+    inline std::ostream& to_stream(std::ostream& os) const override { return os << node; }
 
     class map_iterator : public Inner::map_iterator {
         friend class InnerYAML;
@@ -191,6 +188,17 @@ class SettingsNode {
         }
     }
 
+    template<typename T>
+    T as_inner() const;
+
+    template<typename T>
+    inline T as_inner(const T& fallback) const {
+        if (empty()) {
+            return fallback;
+        }
+        return as_inner<T>();
+    }
+
   public:
     class Map {
         friend class SettingsNode;
@@ -211,7 +219,6 @@ class SettingsNode {
             iterator(Inner::map_iterator* const it_p, const std::shared_ptr<Path>& path_p) : it(it_p), path(path_p){};
 
           public:
-            // TODO using iterator_category = std::forward_iterator_tag;
             void operator++() { it->next(); }
             std::pair<std::string, SettingsNode> operator*() const {
                 const std::string& name = it->name();
@@ -245,7 +252,6 @@ class SettingsNode {
             iterator(Inner::sequence_iterator* const it_p, const std::shared_ptr<Path>& path_p) : it(it_p), path(path_p){};
 
           public:
-            // TODO using iterator_category = std::forward_iterator_tag;
             void operator++() {
                 ++index;
                 it->next();
@@ -305,12 +311,12 @@ class SettingsNode {
 
     template<typename T>
     inline T as() const {
-        return T(as<typename basetype<T>::type>());
+        return T(as_inner<typename basetype<T>::type>());
     }
 
     template<typename T>
     inline T as(const typename basetype<T>::type& fallback) const {
-        return T(as<typename basetype<T>::type>(fallback));
+        return T(as_inner<typename basetype<T>::type>(fallback));
     }
 
     enum class Format {
@@ -349,71 +355,57 @@ class SettingsNode {
         }
         path = rhs.path;
     }
+
+    inline friend std::ostream& operator<<(std::ostream& os, const SettingsNode& node) { return node.inner->to_stream(os); }
 };
 
 template<>
-inline bool SettingsNode::as<bool>() const {
+inline bool SettingsNode::as_inner<bool>() const {
     check();
     check_scalar();
     return inner->as_bool();
 }
 
 template<>
-inline bool SettingsNode::as<bool>(const bool& fallback) const {
-    check_scalar();
-    return inner->as_bool(fallback);
-}
-
-template<>
-inline int SettingsNode::as<int>() const {
+inline int SettingsNode::as_inner<int>() const {
     check();
     check_scalar();
     return inner->as_int();
 }
 
 template<>
-inline int SettingsNode::as<int>(const int& fallback) const {
+inline unsigned int SettingsNode::as_inner<unsigned int>() const {
+    check();
     check_scalar();
-    return inner->as_int(fallback);
+    return inner->as_uint();
 }
 
 template<>
-inline double SettingsNode::as<double>() const {
+inline std::size_t SettingsNode::as_inner<std::size_t>() const {
+    check();
+    check_scalar();
+    return inner->as_size_t();
+}
+
+template<>
+inline double SettingsNode::as_inner<double>() const {
     check();
     check_scalar();
     return inner->as_double();
 }
 
 template<>
-inline double SettingsNode::as<double>(const double& fallback) const {
-    check_scalar();
-    return inner->as_double(fallback);
-}
-
-template<>
-inline float SettingsNode::as<float>() const {
+inline float SettingsNode::as_inner<float>() const {
     check();
     check_scalar();
     return inner->as_float();
 }
 
 template<>
-inline float SettingsNode::as<float>(const float& fallback) const {
-    check_scalar();
-    return inner->as_float(fallback);
-}
-
-template<>
-inline std::string SettingsNode::as<std::string>() const {
+inline std::string SettingsNode::as_inner<std::string>() const {
     check();
     check_scalar();
     return inner->as_string();
-}
-
-template<>
-inline std::string SettingsNode::as<std::string>(const std::string& fallback) const {
-    check_scalar();
-    return inner->as_string(fallback);
 }
 
 }  // namespace settings
