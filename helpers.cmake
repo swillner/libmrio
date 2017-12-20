@@ -263,6 +263,7 @@ function(add_git_version TARGET)
     "#define ${ARGS_DPREFIX}_VERSION_H\n"
     "#define ${ARGS_DPREFIX}_VERSION \"${ARGS_FALLBACK_VERSION}\"\n"
     "#endif")
+  target_include_directories(${TARGET} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/git_version)
   if(NOT ARGS_DIFF_VAR)
     string(TOLOWER ${ARGS_DPREFIX}_git_diff ARGS_DIFF_VAR)
   endif()
@@ -283,8 +284,6 @@ function(add_git_version TARGET)
       set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/git_version/version.h
         PROPERTIES GENERATED TRUE
         HEADER_FILE_ONLY TRUE)
-
-      target_include_directories(${TARGET} PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/git_version)
 
       add_dependencies(${TARGET} ${TARGET}_version)
 
