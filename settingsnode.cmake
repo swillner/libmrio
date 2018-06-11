@@ -13,35 +13,11 @@
 #  You should have received a copy of the GNU Affero General Public License
 #  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-if(TARGET settingsnode)
-  return()
+set(SETTINGSNODE_MODULES_PATH ${CMAKE_CURRENT_LIST_DIR})
+if (NOT TARGET settingsnode)
+  add_library(settingsnode INTERFACE)
+  function(include_settingsnode TARGET)
+    set_property(TARGET settingsnode PROPERTY INTERFACE_INCLUDE_DIRECTORIES ${SETTINGSNODE_MODULES_PATH}/include)
+    target_link_libraries(${TARGET} settingsnode)
+  endfunction()
 endif()
-
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_LIST_DIR}/cmake)
-
-add_library(settingsnode INTERFACE)
-set_property(TARGET settingsnode PROPERTY INTERFACE_COMPILE_DEFINITIONS "SETTINGSNODE_WITH_YAML")
-
-if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/lib/yaml-cpp/CMakeLists.txt)
-  set(APPLE_UNIVERSAL_BIN OFF CACHE INTERNAL "")
-  set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
-  set(MSVC_SHARED_RT ON CACHE INTERNAL "")
-  set(MSVC_STHREADED_RT OFF CACHE INTERNAL "")
-  set(YAML_CPP_BUILD_CONTRIB OFF CACHE INTERNAL "")
-  set(YAML_CPP_BUILD_TOOLS OFF CACHE INTERNAL "")
-  set(gmock_build_tests OFF CACHE INTERNAL "")
-  set(gtest_build_samples OFF CACHE INTERNAL "")
-  set(gtest_build_tests OFF CACHE INTERNAL "")
-  set(gtest_disable_pthreads OFF CACHE INTERNAL "")
-  set(gtest_force_shared_crt OFF CACHE INTERNAL "")
-  add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/yaml-cpp ${CMAKE_CURRENT_BINARY_DIR}/yaml-cpp)
-  target_include_directories(settingsnode INTERFACE ${CMAKE_CURRENT_LIST_DIR}/lib/yaml-cpp/include ${CMAKE_CURRENT_LIST_DIR}/include)
-else()
-  find_package(YAML_CPP REQUIRED)
-  message(STATUS "yaml-cpp include directory: ${YAML_CPP_INCLUDE_DIR}")
-  message(STATUS "yaml-cpp library: ${YAML_CPP_LIBRARY}")
-  target_include_directories(settingsnode INTERFACE ${YAML_CPP_INCLUDE_DIRS} ${CMAKE_CURRENT_LIST_DIR}/include)
-endif()
-
-add_dependencies(settingsnode yaml-cpp)
-target_link_libraries(settingsnode INTERFACE yaml-cpp)
