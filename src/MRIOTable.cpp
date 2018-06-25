@@ -18,9 +18,10 @@
 */
 
 #include "MRIOTable.h"
+#include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <sstream>  // IWYU pragma: keep
+#include <sstream>
 #include <stdexcept>
 #include <tuple>
 #ifdef LIBMRIO_WITH_NETCDF
@@ -232,10 +233,10 @@ void Table<T, I>::read_from_netcdf(const std::string& filename, const T& thresho
     } else {
         std::size_t index_size = index_dim.getSize();
         netCDF::NcVar index_sector_var = file.getVar("index_sector");
-        std::vector<uint32_t> index_sector_val(index_size);
+        std::vector<std::uint32_t> index_sector_val(index_size);
         index_sector_var.getVar(&index_sector_val[0]);
         netCDF::NcVar index_region_var = file.getVar("index_region");
-        std::vector<uint32_t> index_region_val(index_size);
+        std::vector<std::uint32_t> index_region_val(index_size);
         index_region_var.getVar(&index_region_val[0]);
         for (unsigned int i = 0; i < index_size; ++i) {
             index_set_.add_index(index_set_.supersectors()[index_sector_val[i]].get(), index_set_.superregions()[index_region_val[i]].get());
@@ -346,7 +347,7 @@ void Table<T, I>::insert_sector_offset_x_y(const SuperSector<I>* i, const I& i_r
                     insert_sector_offset_y(i, i_regions_count, subsectors_count, x, x_offset + offset, subsectors_count);
                 }
             } else {
-                x_offset--;
+                --x_offset;
                 insert_sector_offset_y(i, i_regions_count, subsectors_count, x, x_offset, 1);
             }
         }
@@ -392,7 +393,7 @@ void Table<T, I>::insert_sector_offset_y(
                     data[x_offset * new_size + y_offset + offset] = data[x * index_set_.size() + y] / subsectors_count / divide_by;
                 }
             } else {
-                y_offset--;
+                --y_offset;
                 data[x_offset * new_size + y_offset] = data[x * index_set_.size() + y] / divide_by;
             }
         }
