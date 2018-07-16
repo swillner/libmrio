@@ -7,6 +7,8 @@ Several code snippets and mini-projects that don't have their own repository yet
 
 - `misc.h` : miscellaneous helpers from various sources
 
+- `progressbar.h` : progressbar on terminals (much like [tqdm](https://github.com/tqdm/tqdm))
+
 - `nvector.h` : n-dimensional vector
 
 - `zip-wrapper.h` : convenient wrapper for libzip
