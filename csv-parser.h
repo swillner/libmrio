@@ -31,39 +31,43 @@ class parser_exception : public std::runtime_error {
   public:
     const unsigned long row;
     const unsigned long col;
+    std::string format() const { return std::string(what()) + " (line " + std::to_string(row) + ", col " + std::to_string(col) + ")"; }
+    std::string format(const std::string& filename) const {
+        return std::string(what()) + " (in " + filename + ", line " + std::to_string(row) + ", col " + std::to_string(col) + ")";
+    }
 
   protected:
-    parser_exception(const char* msg_p, const unsigned long row_p, const unsigned long col_p) : std::runtime_error(msg_p), row(row_p), col(col_p){};
+    parser_exception(const char* msg_p, const unsigned long row_p, const unsigned long col_p) : std::runtime_error(msg_p), row(row_p), col(col_p) {}
 };
 
 class bad_int_cast : public parser_exception, public std::bad_cast {
   public:
-    bad_int_cast(const unsigned long row_p, const unsigned long col_p) : parser_exception("could not read unsigned integer", row_p, col_p){};
+    bad_int_cast(const unsigned long row_p, const unsigned long col_p) : parser_exception("could not read unsigned integer", row_p, col_p) {}
 };
 
 class bad_float_cast : public parser_exception, public std::bad_cast {
   public:
-    bad_float_cast(const unsigned long row_p, const unsigned long col_p) : parser_exception("could not read floating point number", row_p, col_p){};
+    bad_float_cast(const unsigned long row_p, const unsigned long col_p) : parser_exception("could not read floating point number", row_p, col_p) {}
 };
 
 class col_end : public parser_exception {
   public:
-    col_end(const unsigned long row_p, const unsigned long col_p) : parser_exception("column already ended", row_p, col_p){};
+    col_end(const unsigned long row_p, const unsigned long col_p) : parser_exception("column already ended", row_p, col_p) {}
 };
 
 class row_end : public parser_exception {
   public:
-    row_end(const unsigned long row_p, const unsigned long col_p) : parser_exception("row already ended", row_p, col_p){};
+    row_end(const unsigned long row_p, const unsigned long col_p) : parser_exception("row already ended", row_p, col_p) {}
 };
 
 class file_end : public parser_exception {
   public:
-    file_end(const unsigned long row_p, const unsigned long col_p) : parser_exception("file already ended", row_p, col_p){};
+    file_end(const unsigned long row_p, const unsigned long col_p) : parser_exception("file already ended", row_p, col_p) {}
 };
 
 class unclosed_quotes : public parser_exception {
   public:
-    unclosed_quotes(const unsigned long row_p, const unsigned long col_p) : parser_exception("unclosed quotes", row_p, col_p){};
+    unclosed_quotes(const unsigned long row_p, const unsigned long col_p) : parser_exception("unclosed quotes", row_p, col_p) {}
 };
 
 enum class ColumnType { EMPTY, STRING, INTEGER, FLOAT };
@@ -87,7 +91,7 @@ class Parser {
         Parser& p;
 
       protected:
-        explicit Row(Parser& parser) : p(parser){};
+        explicit Row(Parser& parser) : p(parser) {}
 
       public:
         class iterator;
@@ -99,7 +103,7 @@ class Parser {
             Parser& p;
 
           protected:
-            explicit Col(Parser& parser) : p(parser){};
+            explicit Col(Parser& parser) : p(parser) {}
 
           public:
             template<typename T>
@@ -114,7 +118,7 @@ class Parser {
           protected:
             Parser& p;
             long col;
-            iterator(Parser& parser, const long col_p) : p(parser), col(col_p){};
+            iterator(Parser& parser, const long col_p) : p(parser), col(col_p) {}
 
           public:
             iterator operator++() {
@@ -124,15 +128,15 @@ class Parser {
                     col = -1;
                 }
                 return *this;
-            };
-            Col operator*() const { return Col(p); };
-            bool operator==(const iterator& rhs) const { return col == rhs.col; };
-            bool operator!=(const iterator& rhs) const { return col != rhs.col; };
+            }
+            Col operator*() const { return Col(p); }
+            bool operator==(const iterator& rhs) const { return col == rhs.col; }
+            bool operator!=(const iterator& rhs) const { return col != rhs.col; }
         };
 
       public:
-        iterator begin() { return iterator(p, 0); };
-        iterator end() { return iterator(p, -1); };
+        iterator begin() { return iterator(p, 0); }
+        iterator end() { return iterator(p, -1); }
     };
 
     class iterator {
@@ -141,7 +145,7 @@ class Parser {
       protected:
         Parser& p;
         long row;
-        iterator(Parser& parser, const long row_p) : p(parser), row(row_p){};
+        iterator(Parser& parser, const long row_p) : p(parser), row(row_p) {}
 
       public:
         iterator operator++() {
@@ -151,10 +155,10 @@ class Parser {
                 row = -1;
             }
             return *this;
-        };
-        Row operator*() const { return Row(p); };
-        bool operator==(const iterator& rhs) const { return row == rhs.row; };
-        bool operator!=(const iterator& rhs) const { return row != rhs.row; };
+        }
+        Row operator*() const { return Row(p); }
+        bool operator==(const iterator& rhs) const { return row == rhs.row; }
+        bool operator!=(const iterator& rhs) const { return row != rhs.row; }
     };
 
   protected:
@@ -170,16 +174,16 @@ class Parser {
     }
 
   public:
-    Parser(std::istream& stream, char delimiter_ = ',') : in(stream), delimiter(delimiter_){};
+    Parser(std::istream& stream, char delimiter_ = ',') : in(stream), delimiter(delimiter_) {}
 
-    iterator begin() { return iterator(*this, 0); };
-    iterator end() { return iterator(*this, -1); };
+    iterator begin() { return iterator(*this, 0); }
+    iterator end() { return iterator(*this, -1); }
 
-    inline long row() const { return row_; };
-    inline long col() const { return col_; };
+    inline long row() const { return row_; }
+    inline long col() const { return col_; }
 
-    inline bool eof() const { return in.eof(); };
-    inline bool eol() const { return row_finished; };
+    inline bool eof() const { return in.eof(); }
+    inline bool eol() const { return row_finished; }
 
     template<typename T>
     inline typename std::enable_if<std::is_same<T, void>::value, T>::type read();
@@ -238,7 +242,7 @@ class Parser {
                         quoted = !quoted;
                     }
                 }
-            };
+            }
         }
         while (true) {
             c = in.peek();
@@ -265,7 +269,7 @@ class Parser {
         row_finished = false;
         col_ = 0;
         return true;
-    };
+    }
 };
 
 template<>
