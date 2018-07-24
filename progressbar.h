@@ -71,8 +71,10 @@ class ProgressBar {
         auto duration = (now - last_reprint_time).count();
         reprint_next = current + (current - last_reprint_iter) * min_reprint_time / std::max(duration, min_reprint_time) + 1;
         if (duration >= min_reprint_time || force) {
-            auto freq =
-                (current - last_reprint_iter) * std::chrono::steady_clock::period::den / static_cast<float>(duration * std::chrono::steady_clock::period::num);
+            auto freq = std::chrono::steady_clock::period::den
+                        * ((1 - smoothing) * (current - last_reprint_iter) / static_cast<float>(duration)
+                           + smoothing * (current - eta_from_iter) / static_cast<float>((now - eta_from_time).count()))
+                        / std::chrono::steady_clock::period::num;
             auto etr = std::lrint((total - current)
                                   * ((1 - smoothing) * duration / static_cast<float>((current - last_reprint_iter))
                                      + smoothing * (now - eta_from_time).count() / static_cast<float>(current - eta_from_iter)));
@@ -145,8 +147,14 @@ class ProgressBar {
             }
         }
         if (etr_known) {
-            if (!safe_print_duration(c, buf_remaining, etr)) {
-                return;
+            if (current == total) {
+                if (!safe_print(c, buf_remaining, "done")) {
+                    return;
+                }
+            } else {
+                if (!safe_print_duration(c, buf_remaining, etr)) {
+                    return;
+                }
             }
         } else {
             if (!safe_print(c, buf_remaining, "--")) {
@@ -162,7 +170,7 @@ class ProgressBar {
 
         if (buf_remaining > 5 * buf.size() / 7) {
             // for wide terminals make actual bar shorter
-            if (buf.size() / 8 > prefix_len - 4) {
+            if (buf.size() / 8 > prefix_len + 4) {
                 const auto padding_before = buf.size() / 8 - prefix_len - 4;
                 std::memset(c, ' ', padding_before);
                 c += padding_before;
