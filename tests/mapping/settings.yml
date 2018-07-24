@@ -1,0 +1,35 @@
+basetable:
+  type: csv
+  index: indices.csv
+  file: basetable.csv
+  threshold: 0
+output:
+  type: csv
+  index: output_indices.csv
+  file: output_data.csv
+disaggregation:
+  subs:
+    - type: region
+      id: USA
+      into:
+        - US1
+        - US2
+  proxies:
+    - file: proxy.csv
+      columns:
+        year:
+          type: select
+          value: 2017
+        sector:
+          type: sector
+          mapping:
+            file: mapping.csv
+            foreign_column: foreign
+            native_column: native
+        subregion:
+          type: subregion
+        value:
+          type: value
+      applications:
+        - [ i, r ]
+        - [ j, s ]

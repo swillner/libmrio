@@ -20,12 +20,25 @@ add_git_version(mrio_disaggregate
 
 include(libmrio.cmake)
 set_advanced_cpp_warnings(libmrio)
-target_link_libraries(mrio_disaggregate libmrio)
+target_link_libraries(mrio_disaggregate PRIVATE libmrio)
 
 include(lib/settingsnode/settingsnode.cmake)
 include_settingsnode(mrio_disaggregate)
 
-include_yaml_cpp(mrio_disaggregate ON "yaml-cpp-0.6.1")
+include_yaml_cpp(mrio_disaggregate ON "yaml-cpp-0.6.2")
 
 add_cpp_tools(mrio_disaggregate)
 add_cpp_tools(libmrio)
+
+include(CTest)
+
+if(BUILD_TESTING)
+  file(GLOB tests "${CMAKE_SOURCE_DIR}/tests/*")
+  foreach(test ${tests})
+    if(IS_DIRECTORY ${test})
+      add_test(NAME "${test}"
+        COMMAND sh ${CMAKE_SOURCE_DIR}/tests/run_test.sh $<TARGET_FILE:mrio_disaggregate>
+        WORKING_DIRECTORY ${test})
+    endif()
+  endforeach()
+endif()

@@ -50,7 +50,7 @@ SuperSector<I>* IndexSet<I>::add_sector(const std::string& name) {
         auto* s = new SuperSector<I>(name, supersectors_.size(), supersectors_.size());
         supersectors_.emplace_back(s);
         sectors_map.emplace(name, s);
-        total_sectors_count_++;
+        ++total_sectors_count_;
         return s;
     }
     return res->second->as_super();
@@ -67,7 +67,7 @@ SuperRegion<I>* IndexSet<I>::add_region(const std::string& name) {
         auto* r = new SuperRegion<I>(name, superregions_.size(), superregions_.size());
         superregions_.emplace_back(r);
         regions_map.emplace(name, r);
-        total_regions_count_++;
+        ++total_regions_count_;
         return r;
     }
     return res->second->as_super();
@@ -77,7 +77,7 @@ template<typename I>
 void IndexSet<I>::add_index(SuperSector<I>* sector_p, SuperRegion<I>* region_p) {
     region_p->sectors_.push_back(sector_p);
     sector_p->regions_.push_back(region_p);
-    size_++;
+    ++size_;
 }
 
 template<typename I>
@@ -102,11 +102,11 @@ void IndexSet<I>::rebuild_indices() {
                     if (s->has_sub()) {
                         for (const auto& sub_s : s->sub()) {
                             indices_[*sub_s * total_regions_count_ + *sub_r] = index;
-                            index++;
+                            ++index;
                         }
                     } else {
                         indices_[*s * total_regions_count_ + *sub_r] = index;
-                        index++;
+                        ++index;
                     }
                 }
             }
@@ -115,11 +115,11 @@ void IndexSet<I>::rebuild_indices() {
                 if (s->has_sub()) {
                     for (const auto& sub_s : s->sub()) {
                         indices_[*sub_s * total_regions_count_ + *r] = index;
-                        index++;
+                        ++index;
                     }
                 } else {
                     indices_[*s * total_regions_count_ + *r] = index;
-                    index++;
+                    ++index;
                 }
             }
         }
@@ -155,40 +155,40 @@ IndexSet<I>& IndexSet<I>::operator=(const IndexSet<I>& other) {
 
 template<typename I>
 void IndexSet<I>::copy_pointers(const IndexSet<I>& other) {
-    for (I it = 0; it < other.subsectors_.size(); it++) {
+    for (I it = 0; it < other.subsectors_.size(); ++it) {
         auto* n = new SubSector<I>(*other.subsectors_[it]);
         subsectors_.emplace_back(n);
         sectors_map.at(n->name) = n;
     }
-    for (I it = 0; it < other.subregions_.size(); it++) {
+    for (I it = 0; it < other.subregions_.size(); ++it) {
         auto* n = new SubRegion<I>(*other.subregions_[it]);
         subregions_.emplace_back(n);
         regions_map.at(n->name) = n;
     }
-    for (I it = 0; it < other.supersectors_.size(); it++) {
+    for (I it = 0; it < other.supersectors_.size(); ++it) {
         auto* n = new SuperSector<I>(*other.supersectors_[it]);
         supersectors_.emplace_back(n);
         sectors_map.at(n->name) = n;
-        for (I it2 = 0; it2 < n->sub_.size(); it2++) {
+        for (I it2 = 0; it2 < n->sub_.size(); ++it2) {
             n->sub_[it2] = static_cast<SubSector<I>*>(sectors_map.at(n->sub_[it2]->name));
             n->sub_[it2]->parent_ = n;
         }
     }
-    for (I it = 0; it < other.superregions_.size(); it++) {
+    for (I it = 0; it < other.superregions_.size(); ++it) {
         auto* n = new SuperRegion<I>(*other.superregions_[it]);
         superregions_.emplace_back(n);
         regions_map.at(n->name) = n;
-        for (I it2 = 0; it2 < n->sub_.size(); it2++) {
+        for (I it2 = 0; it2 < n->sub_.size(); ++it2) {
             n->sub_[it2] = static_cast<SubRegion<I>*>(regions_map.at(n->sub_[it2]->name));
             n->sub_[it2]->parent_ = n;
         }
-        for (I it2 = 0; it2 < n->sectors_.size(); it2++) {
+        for (I it2 = 0; it2 < n->sectors_.size(); ++it2) {
             n->sectors_[it2] = static_cast<SuperSector<I>*>(sectors_map.at(n->sectors_[it2]->name));
         }
     }
-    for (I it = 0; it < other.supersectors_.size(); it++) {
+    for (I it = 0; it < other.supersectors_.size(); ++it) {
         SuperSector<I>* n = supersectors_[it].get();
-        for (I it2 = 0; it2 < n->regions_.size(); it2++) {
+        for (I it2 = 0; it2 < n->regions_.size(); ++it2) {
             n->regions_[it2] = static_cast<SuperRegion<I>*>(regions_map.at(n->regions_[it2]->name));
         }
     }
@@ -209,9 +209,9 @@ void IndexSet<I>::insert_subsectors(const std::string& name, const std::vector<s
         sectors_map.emplace(sub_name, sub);
         subsectors_.emplace_back(sub);
         super->sub_.push_back(sub);
-        total_index++;
-        level_index++;
-        subindex++;
+        ++total_index;
+        ++level_index;
+        ++subindex;
     }
     for (auto& adjust_super : supersectors_) {
         if (adjust_super->total_index_ > super->total_index_) {
@@ -226,7 +226,7 @@ void IndexSet<I>::insert_subsectors(const std::string& name, const std::vector<s
         if (!region_l->sub().empty()) {
             total_regions_size += region_l->sub().size();
         } else {
-            total_regions_size++;
+            ++total_regions_size;
         }
     }
     total_sectors_count_ += (newsubsectors.size() - 1);
@@ -248,9 +248,9 @@ void IndexSet<I>::insert_subregions(const std::string& name, const std::vector<s
         regions_map.emplace(sub_name, sub);
         subregions_.emplace_back(sub);
         super->sub_.push_back(sub);
-        total_index++;
-        level_index++;
-        subindex++;
+        ++total_index;
+        ++level_index;
+        ++subindex;
     }
     for (auto& adjust_super : superregions_) {
         if (adjust_super->total_index_ > super->total_index_) {
@@ -265,7 +265,7 @@ void IndexSet<I>::insert_subregions(const std::string& name, const std::vector<s
         if (!sector_l->sub().empty()) {
             total_sectors_size += sector_l->sub().size();
         } else {
-            total_sectors_size++;
+            ++total_sectors_size;
         }
     }
     total_regions_count_ += (newsubregions.size() - 1);

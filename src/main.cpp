@@ -22,8 +22,11 @@
 #include <iostream>
 #include <stdexcept>
 #include <string>
-#include "Disaggregation.h"
 #include "MRIOTable.h"
+#include "disaggregation.h"
+#ifdef LIBMRIO_SHOW_PROGRESS
+#include "progressbar.h"
+#endif
 #include "settingsnode.h"
 #include "settingsnode/yaml.h"
 #include "version.h"
@@ -36,14 +39,17 @@ static void print_usage(const char* program_name) {
     std::cerr << "Regional and sectoral disaggregation of multi-regional input-output tables\n"
                  "Version:  " MRIO_DISAGGREGATE_VERSION
                  "\n"
-                 "Author:   Sven Willner <sven.willner@pik-potsdam.de>\n\n"
+                 "Author:   Sven Willner <sven.willner@pik-potsdam.de>\n"
+                 "\n"
                  "Algorithm described in:\n"
                  "   L. Wenz, S.N. Willner, A. Radebach, R. Bierkandt, J.C. Steckel, A. Levermann.\n"
                  "   Regional and sectoral disaggregation of multi-regional input-output tables:\n"
                  "   a flexible algorithm. Economic Systems Research 27 (2015).\n"
-                 "   DOI: 10.1080/09535314.2014.987731\n\n"
+                 "   DOI: 10.1080/09535314.2014.987731\n"
+                 "\n"
                  "Source:   https://github.com/swillner/libmrio\n"
-                 "License:  AGPL, (c) 2014-2017 Sven Willner (see LICENSE file)\n\n"
+                 "License:  AGPL, (c) 2014-2017 Sven Willner (see LICENSE file)\n"
+                 "\n"
                  "Usage:    "
               << program_name
               << " (<option> | <settingsfile>)\n"
@@ -78,12 +84,17 @@ int main(int argc, char* argv[]) {
                 settings = settings::SettingsNode(std::unique_ptr<settings::YAML>(new settings::YAML(std::cin)));
             } else {
                 std::ifstream settings_file(arg);
+                if (!settings_file) {
+                    throw std::runtime_error("Cannot open " + arg);
+                }
                 settings = settings::SettingsNode(std::unique_ptr<settings::YAML>(new settings::YAML(settings_file)));
             }
 
-            std::cout << "Loading basetable... " << std::flush;
             mrio::Table<T, I> basetable;
             {
+#ifdef LIBMRIO_SHOW_PROGRESS
+                progressbar::ProgressBar bar(1, "Load basetable");
+#endif
                 const std::string& type = settings["basetable"]["type"].as<std::string>();
                 const std::string& filename = settings["basetable"]["file"].as<std::string>();
                 const auto threshold = settings["basetable"]["threshold"].as<T>();
@@ -97,12 +108,6 @@ int main(int argc, char* argv[]) {
                         throw std::runtime_error("Could not open data file");
                     }
                     basetable.read_from_csv(indices, data, threshold);
-                } else if (type == "mrio") {
-                    std::ifstream data(filename);
-                    if (!data) {
-                        throw std::runtime_error("Could not open data file");
-                    }
-                    basetable.read_from_mrio(data, threshold);
 #ifdef LIBMRIO_WITH_NETCDF
                 } else if (type == "netcdf") {
                     basetable.read_from_netcdf(filename, threshold);
@@ -110,44 +115,39 @@ int main(int argc, char* argv[]) {
                 } else {
                     throw std::runtime_error("Unknown type '" + type + "'");
                 }
+#ifdef LIBMRIO_SHOW_PROGRESS
+                ++bar;
+#endif
             }
-            std::cout << "done" << std::endl;
 
-            mrio::Disaggregation<T, I> disaggregation(&basetable);
-
-            std::cout << "Loading proxies... " << std::flush;
-            disaggregation.initialize(settings["disaggregation"]);
-            std::cout << "done" << std::endl;
-
-            std::cout << "Applying disaggregation algorithm... " << std::flush;
-            disaggregation.refine();
-            std::cout << "done" << std::endl;
-
-            std::cout << "Writing disaggregated table... " << std::flush;
+            auto refined_table = disaggregate(basetable, settings["disaggregation"]);
             {
+#ifdef LIBMRIO_SHOW_PROGRESS
+                progressbar::ProgressBar bar(1, "Write output table");
+#endif
                 const std::string& type = settings["output"]["type"].as<std::string>();
                 const std::string& filename = settings["output"]["file"].as<std::string>();
                 if (type == "csv") {
-                    std::ofstream outfile(filename);
-                    if (!outfile) {
-                        throw std::runtime_error("Could not create output file");
+                    std::ofstream data(filename);
+                    if (!data) {
+                        throw std::runtime_error("Could not create data output file");
                     }
-                    disaggregation.refined_table().write_to_csv(outfile);
-                } else if (type == "mrio") {
-                    std::ofstream outfile(filename);
-                    if (!outfile) {
-                        throw std::runtime_error("Could not create output file");
+                    std::ofstream indices(settings["output"]["index"].as<std::string>());
+                    if (!indices) {
+                        throw std::runtime_error("Could not create indices output file");
                     }
-                    disaggregation.refined_table().write_to_mrio(outfile);
+                    refined_table.write_to_csv(indices, data);
 #ifdef LIBMRIO_WITH_NETCDF
                 } else if (type == "netcdf") {
-                    disaggregation.refined_table().write_to_netcdf(filename);
+                    refined_table.write_to_netcdf(filename);
 #endif
                 } else {
                     throw std::runtime_error("Unknown type '" + type + "'");
                 }
+#ifdef LIBMRIO_SHOW_PROGRESS
+                ++bar;
+#endif
             }
-            std::cout << "done" << std::endl;
         }
 #ifndef DEBUG
     } catch (std::exception& ex) {
