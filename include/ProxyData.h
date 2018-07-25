@@ -86,6 +86,12 @@ class ProxyData {
         std::vector<std::unique_ptr<MappingIndexPart>> foreign_indices;
         std::unordered_map<std::string, MappingIndexPart*> foreign_indices_map;
     };
+    struct Column {
+        enum class Type { SELECT, IGNORE, VALUE, INDEX };
+        Type type;
+        std::string value;
+        ProxyIndex* index;
+    };
     struct Application {
         ProxyIndex* i = nullptr;
         ProxyIndex* r = nullptr;

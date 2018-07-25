@@ -267,13 +267,6 @@ void ProxyData<T, I>::read_from_file(const settings::SettingsNode& settings_node
         throw std::runtime_error("Could not open proxy file " + filename);
     }
 
-    struct Column {
-        enum class Type { SELECT, IGNORE, VALUE, INDEX };
-        Type type;
-        std::string value;
-        ProxyIndex* index;
-    };
-
     try {
         std::vector<Column> columns;
         std::unordered_set<std::string> column_names;
