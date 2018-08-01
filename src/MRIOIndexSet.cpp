@@ -40,14 +40,14 @@ void IndexSet<I>::clear() {
 }
 
 template<typename I>
-SuperSector<I>* IndexSet<I>::add_sector(const std::string& name) {
+Sector<I>* IndexSet<I>::add_sector(const std::string& name) {
     if (!subsectors_.empty()) {
         throw std::runtime_error("Cannot add new sector when already disaggregated");
     }
     const auto res = sectors_map.find(name);
     if (res == sectors_map.end()) {
         indices_.clear();
-        auto* s = new SuperSector<I>(name, supersectors_.size(), supersectors_.size());
+        auto* s = new Sector<I>(name, supersectors_.size(), supersectors_.size());
         supersectors_.emplace_back(s);
         sectors_map.emplace(name, s);
         ++total_sectors_count_;
@@ -57,14 +57,14 @@ SuperSector<I>* IndexSet<I>::add_sector(const std::string& name) {
 }
 
 template<typename I>
-SuperRegion<I>* IndexSet<I>::add_region(const std::string& name) {
+Region<I>* IndexSet<I>::add_region(const std::string& name) {
     if (!subregions_.empty()) {
         throw std::runtime_error("Cannot add new region when already disaggregated");
     }
     const auto res = regions_map.find(name);
     if (res == regions_map.end()) {
         indices_.clear();
-        auto* r = new SuperRegion<I>(name, superregions_.size(), superregions_.size());
+        auto* r = new Region<I>(name, superregions_.size(), superregions_.size());
         superregions_.emplace_back(r);
         regions_map.emplace(name, r);
         ++total_regions_count_;
@@ -74,7 +74,7 @@ SuperRegion<I>* IndexSet<I>::add_region(const std::string& name) {
 }
 
 template<typename I>
-void IndexSet<I>::add_index(SuperSector<I>* sector_p, SuperRegion<I>* region_p) {
+void IndexSet<I>::add_index(Sector<I>* sector_p, Region<I>* region_p) {
     region_p->sectors_.push_back(sector_p);
     sector_p->regions_.push_back(region_p);
     ++size_;
@@ -82,8 +82,8 @@ void IndexSet<I>::add_index(SuperSector<I>* sector_p, SuperRegion<I>* region_p) 
 
 template<typename I>
 void IndexSet<I>::add_index(const std::string& sector_name, const std::string& region_name) {
-    SuperSector<I>* sector_l = add_sector(sector_name);
-    SuperRegion<I>* region_l = add_region(region_name);
+    Sector<I>* sector_l = add_sector(sector_name);
+    Region<I>* region_l = add_region(region_name);
     if (std::find(region_l->sectors_.begin(), region_l->sectors_.end(), sector_l) != region_l->sectors_.end()) {
         throw std::runtime_error("Combination of sector and region already given");
     }
@@ -93,7 +93,7 @@ void IndexSet<I>::add_index(const std::string& sector_name, const std::string& r
 template<typename I>
 void IndexSet<I>::rebuild_indices() {
     indices_.clear();
-    indices_.resize(total_sectors_count_ * total_regions_count_, -1);
+    indices_.resize(total_sectors_count_ * total_regions_count_, NOT_GIVEN);
     I index = 0;
     for (const auto& r : superregions_) {
         if (r->has_sub()) {
@@ -156,40 +156,40 @@ IndexSet<I>& IndexSet<I>::operator=(const IndexSet<I>& other) {
 template<typename I>
 void IndexSet<I>::copy_pointers(const IndexSet<I>& other) {
     for (I it = 0; it < other.subsectors_.size(); ++it) {
-        auto* n = new SubSector<I>(*other.subsectors_[it]);
+        auto* n = new Sector<I>(*other.subsectors_[it]);
         subsectors_.emplace_back(n);
         sectors_map.at(n->name) = n;
     }
     for (I it = 0; it < other.subregions_.size(); ++it) {
-        auto* n = new SubRegion<I>(*other.subregions_[it]);
+        auto* n = new Region<I>(*other.subregions_[it]);
         subregions_.emplace_back(n);
         regions_map.at(n->name) = n;
     }
     for (I it = 0; it < other.supersectors_.size(); ++it) {
-        auto* n = new SuperSector<I>(*other.supersectors_[it]);
+        auto* n = new Sector<I>(*other.supersectors_[it]);
         supersectors_.emplace_back(n);
         sectors_map.at(n->name) = n;
         for (I it2 = 0; it2 < n->sub_.size(); ++it2) {
-            n->sub_[it2] = static_cast<SubSector<I>*>(sectors_map.at(n->sub_[it2]->name));
+            n->sub_[it2] = sectors_map.at(n->sub_[it2]->name);
             n->sub_[it2]->parent_ = n;
         }
     }
     for (I it = 0; it < other.superregions_.size(); ++it) {
-        auto* n = new SuperRegion<I>(*other.superregions_[it]);
+        auto* n = new Region<I>(*other.superregions_[it]);
         superregions_.emplace_back(n);
         regions_map.at(n->name) = n;
         for (I it2 = 0; it2 < n->sub_.size(); ++it2) {
-            n->sub_[it2] = static_cast<SubRegion<I>*>(regions_map.at(n->sub_[it2]->name));
+            n->sub_[it2] = regions_map.at(n->sub_[it2]->name);
             n->sub_[it2]->parent_ = n;
         }
         for (I it2 = 0; it2 < n->sectors_.size(); ++it2) {
-            n->sectors_[it2] = static_cast<SuperSector<I>*>(sectors_map.at(n->sectors_[it2]->name));
+            n->sectors_[it2] = sectors_map.at(n->sectors_[it2]->name);
         }
     }
     for (I it = 0; it < other.supersectors_.size(); ++it) {
-        SuperSector<I>* n = supersectors_[it].get();
+        Sector<I>* n = supersectors_[it].get();
         for (I it2 = 0; it2 < n->regions_.size(); ++it2) {
-            n->regions_[it2] = static_cast<SuperRegion<I>*>(regions_map.at(n->regions_[it2]->name));
+            n->regions_[it2] = regions_map.at(n->regions_[it2]->name);
         }
     }
     rebuild_indices();
@@ -197,7 +197,7 @@ void IndexSet<I>::copy_pointers(const IndexSet<I>& other) {
 
 template<typename I>
 void IndexSet<I>::insert_subsectors(const std::string& name, const std::vector<std::string>& newsubsectors) {
-    SuperSector<I>* super = sectors_map.at(name)->as_super();
+    Sector<I>* super = sectors_map.at(name)->as_super();
     if (!super) {
         throw std::runtime_error("Sector '" + name + "' is not a super sector");
     }
@@ -205,7 +205,7 @@ void IndexSet<I>::insert_subsectors(const std::string& name, const std::vector<s
     I level_index = subsectors_.size();
     I subindex = 0;
     for (const auto& sub_name : newsubsectors) {
-        auto* sub = new SubSector<I>(sub_name, total_index, level_index, super, subindex);
+        auto* sub = new Sector<I>(sub_name, total_index, level_index, super, subindex);
         sectors_map.emplace(sub_name, sub);
         subsectors_.emplace_back(sub);
         super->sub_.push_back(sub);
@@ -236,7 +236,7 @@ void IndexSet<I>::insert_subsectors(const std::string& name, const std::vector<s
 
 template<typename I>
 void IndexSet<I>::insert_subregions(const std::string& name, const std::vector<std::string>& newsubregions) {
-    SuperRegion<I>* super = regions_map.at(name)->as_super();
+    Region<I>* super = regions_map.at(name)->as_super();
     if (!super) {
         throw std::runtime_error("Region '" + name + "' is not a super region");
     }
@@ -244,7 +244,7 @@ void IndexSet<I>::insert_subregions(const std::string& name, const std::vector<s
     I level_index = subregions_.size();
     I subindex = 0;
     for (const auto& sub_name : newsubregions) {
-        auto* sub = new SubRegion<I>(sub_name, total_index, level_index, super, subindex);
+        auto* sub = new Region<I>(sub_name, total_index, level_index, super, subindex);
         regions_map.emplace(sub_name, sub);
         subregions_.emplace_back(sub);
         super->sub_.push_back(sub);
@@ -274,4 +274,5 @@ void IndexSet<I>::insert_subregions(const std::string& name, const std::vector<s
 }
 
 template class IndexSet<std::size_t>;
+template<> const std::size_t IndexSet<std::size_t>::NOT_GIVEN = static_cast<std::size_t>(-1);
 }  // namespace mrio

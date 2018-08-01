@@ -40,70 +40,174 @@
 
 namespace mrio {
 
+#if defined(__GNUC__) || defined(__INTEL_COMPILER)
+#define likely(x) __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
+#else
+#define likely(x) (x)
+#define unlikely(x) (x)
+#endif
+
 template<typename T, typename I>
-const T Table<T, I>::sum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
+T Table<T, I>::sum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
+    if (unlikely(i == nullptr)) {
+        if (unlikely(r == nullptr)) {
+            return build_sum_j(j, s, index_set_.supersectors(), true);
+        }
+        return build_sum_r(i, r, j, s, index_set_.supersectors());
+    }
+    if (unlikely(i->has_sub())) {
+        return build_sum_r(i, r, j, s, i->sub());
+    }
+    return build_sum_r(i, r, j, s, i);
+}
+
+template<typename T, typename I>
+template<typename... Arguments>
+T Table<T, I>::build_sum_r(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const Arguments&... other) const noexcept {
+    if (unlikely(r == nullptr)) {
+        return build_sum_j(j, s, other..., i->super()->regions());
+    }
+    if (unlikely(r->has_sub())) {
+        return build_sum_j(j, s, other..., r->sub());
+    }
+    return build_sum_j(j, s, other..., r);
+}
+
+template<typename T, typename I>
+template<typename... Arguments>
+T Table<T, I>::build_sum_j(const Sector<I>* j, const Region<I>* s, const Arguments&... other) const noexcept {
+    if (unlikely(j == nullptr)) {
+        if (unlikely(s == nullptr)) {
+            T res = 0;
+            add_sum(res, other..., index_set_.supersectors(), true);
+            return res;
+        }
+        return build_sum_s(j, s, other..., index_set_.supersectors());
+    }
+    if (unlikely(j->has_sub())) {
+        return build_sum_s(j, s, other..., j->sub());
+    }
+    return build_sum_s(j, s, other..., j);
+}
+
+template<typename T, typename I>
+template<typename... Arguments>
+T Table<T, I>::build_sum_s(const Sector<I>* j, const Region<I>* s, const Arguments&... other) const noexcept {
     T res = 0;
-    if (i == nullptr) {
-        for (auto& i_l : index_set_.supersectors()) {
-            res += sum(i_l.get(), r, j, s);
-        }
-    } else if (i->has_sub()) {
-        for (auto& i_l : i->as_super()->sub()) {
-            res += sum(i_l, r, j, s);
-        }
-    } else if (r == nullptr) {
-        for (auto& r_l : (i->as_super() ? i->as_super() : i->parent())->regions()) {
-            res += sum(i, r_l, j, s);
-        }
-    } else if (r->has_sub()) {
-        for (auto& r_l : r->as_super()->sub()) {
-            res += sum(i, r_l, j, s);
-        }
-    } else if (j == nullptr) {
-        for (auto& j_l : index_set_.supersectors()) {
-            res += sum(i, r, j_l.get(), s);
-        }
-    } else if (j->has_sub()) {
-        for (auto& j_l : j->as_super()->sub()) {
-            res += sum(i, r, j_l, s);
-        }
-    } else if (s == nullptr) {
-        for (auto& s_l : (j->as_super() ? j->as_super() : j->parent())->regions()) {
-            res += sum(i, r, j, s_l);
-        }
-    } else if (s->has_sub()) {
-        for (auto& s_l : s->as_super()->sub()) {
-            res += sum(i, r, j, s_l);
-        }
+    if (unlikely(s == nullptr)) {
+        add_sum(res, other..., j->super()->regions());
+    } else if (unlikely(s->has_sub())) {
+        add_sum(res, other..., s->sub());
     } else {
-        return (*this)(i, r, j, s);
+        add_sum(res, other..., s);
     }
     return res;
 }
 
 template<typename T, typename I>
-const T Table<T, I>::basesum(const SuperSector<I>* i, const SuperRegion<I>* r, const SuperSector<I>* j, const SuperRegion<I>* s) const noexcept {
-    T res = 0;
+template<typename Inner, typename... Arguments>
+void Table<T, I>::add_sum(T& res, const std::vector<Inner*>& vec, const Arguments&... params) const noexcept {
+    for (const auto k : vec) {
+        add_sum(res, params..., k);
+    }
+}
+
+template<typename T, typename I>
+template<typename Inner, typename... Arguments>
+void Table<T, I>::add_sum(T& res, const std::vector<std::unique_ptr<Inner>>& vec, const Arguments&... params) const noexcept {
+    for (const auto& k : vec) {
+        add_sum(res, params..., k.get());
+    }
+}
+
+template<typename T, typename I>
+template<typename... Arguments>
+void Table<T, I>::add_sum(T& res, const std::vector<std::unique_ptr<Sector<I>>>& vec, const bool, const Arguments&... params) const noexcept {
+    for (const auto& i : vec) {
+        for (const auto r : i->super()->regions()) {
+            add_sum(res, params..., i.get(), r);
+        }
+    }
+}
+
+template<typename T, typename I>
+template<typename Inner, typename... Arguments>
+void Table<T, I>::add_sum(T& res, const Inner* k, const Arguments&... params) const noexcept {
+    add_sum(res, params..., k);
+}
+
+template<typename T, typename I>
+void Table<T, I>::add_sum(T& res, const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
+    res += (*this)(i, r, j, s);
+}
+
+template<typename T, typename I>
+T Table<T, I>::basesum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
     if (i == nullptr) {
-        for (auto& i_l : index_set_.supersectors()) {
-            res += basesum(i_l.get(), r, j, s);
+        if (r == nullptr) {
+            return build_basesum_j(j, s, index_set_.supersectors(), true);
         }
-    } else if (r == nullptr) {
-        for (auto& r_l : i->regions()) {
-            res += basesum(i, r_l, j, s);
-        }
-    } else if (j == nullptr) {
-        for (auto& j_l : index_set_.supersectors()) {
-            res += basesum(i, r, j_l.get(), s);
+        return build_basesum_j(j, s, index_set_.supersectors(), r);
+    }
+    if (r == nullptr) {
+        return build_basesum_j(j, s, i, i->regions());
+    }
+    return build_basesum_j(j, s, i, r);
+}
+
+template<typename T, typename I>
+template<typename... Arguments>
+T Table<T, I>::build_basesum_j(const Sector<I>* j, const Region<I>* s, const Arguments&... params) const noexcept {
+    T res = 0;
+    if (j == nullptr) {
+        if (s == nullptr) {
+            add_basesum(res, params..., index_set_.supersectors(), true);
+        } else {
+            add_basesum(res, params..., index_set_.supersectors(), s);
         }
     } else if (s == nullptr) {
-        for (auto& s_l : j->regions()) {
-            res += basesum(i, r, j, s_l);
-        }
+        add_basesum(res, params..., j, j->regions());
     } else {
-        return this->base(i, r, j, s);
+        add_basesum(res, params..., j, s);
     }
     return res;
+}
+template<typename T, typename I>
+template<typename Inner, typename... Arguments>
+void Table<T, I>::add_basesum(T& res, const std::vector<Inner*>& vec, const Arguments&... params) const noexcept {
+    for (const auto k : vec) {
+        add_basesum(res, params..., k);
+    }
+}
+
+template<typename T, typename I>
+template<typename Inner, typename... Arguments>
+void Table<T, I>::add_basesum(T& res, const std::vector<std::unique_ptr<Inner>>& vec, const Arguments&... params) const noexcept {
+    for (const auto& k : vec) {
+        add_basesum(res, params..., k.get());
+    }
+}
+
+template<typename T, typename I>
+template<typename... Arguments>
+void Table<T, I>::add_basesum(T& res, const std::vector<std::unique_ptr<Sector<I>>>& vec, const bool, const Arguments&... params) const noexcept {
+    for (const auto& i : vec) {
+        for (const auto r : i->super()->regions()) {
+            add_basesum(res, params..., i.get(), r);
+        }
+    }
+}
+
+template<typename T, typename I>
+template<typename Inner, typename... Arguments>
+void Table<T, I>::add_basesum(T& res, const Inner* k, const Arguments&... params) const noexcept {
+    add_basesum(res, params..., k);
+}
+
+template<typename T, typename I>
+void Table<T, I>::add_basesum(T& res, const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
+    res += base(i, r, j, s);
 }
 
 template<typename T, typename I>
@@ -311,7 +415,7 @@ void Table<T, I>::write_to_netcdf(const std::string& filename) const {
 #endif
 
 template<typename T, typename I>
-void Table<T, I>::insert_sector_offset(const SuperSector<I>* i, const I& i_regions_count, const I& subsectors_count) noexcept {
+void Table<T, I>::insert_sector_offset(const Sector<I>* i, const I& i_regions_count, const I& subsectors_count) noexcept {
     auto region = i->regions().rbegin();
     if (region != i->regions().rend()) {
         auto subregion = (*region)->sub().rbegin();
@@ -332,7 +436,7 @@ void Table<T, I>::insert_sector_offset(const SuperSector<I>* i, const I& i_regio
                 if (subregion == (*region)->sub().rend()) {
                     ++region;
                     if (region == i->regions().rend()) {
-                        next = -1;
+                        next = IndexSet<I>::NOT_GIVEN;
                     } else {
                         subregion = (*region)->sub().rbegin();
                         if (subregion == (*region)->sub().rend()) {
@@ -357,7 +461,7 @@ void Table<T, I>::insert_sector_offset(const SuperSector<I>* i, const I& i_regio
 
 template<typename T, typename I>
 void Table<T, I>::insert_sector_offset_row(
-    const SuperSector<I>* i, const I& i_regions_count, const I& subsectors_count, const I& y, const I& y_offset, const I& divide_by) noexcept {
+    const Sector<I>* i, const I& i_regions_count, const I& subsectors_count, const I& y, const I& y_offset, const I& divide_by) noexcept {
     auto region = i->regions().rbegin();
     if (region != i->regions().rend()) {
         auto subregion = (*region)->sub().rbegin();
@@ -378,7 +482,7 @@ void Table<T, I>::insert_sector_offset_row(
                 if (subregion == (*region)->sub().rend()) {
                     ++region;
                     if (region == i->regions().rend()) {
-                        next = -1;
+                        next = IndexSet<I>::NOT_GIVEN;
                     } else {
                         subregion = (*region)->sub().rbegin();
                         if (subregion == (*region)->sub().rend()) {
@@ -402,7 +506,7 @@ void Table<T, I>::insert_sector_offset_row(
 }
 
 template<typename T, typename I>
-void Table<T, I>::insert_region_offset(const SuperRegion<I>* r, const I& r_sectors_count, const I& subregions_count) noexcept {
+void Table<T, I>::insert_region_offset(const Region<I>* r, const I& r_sectors_count, const I& subregions_count) noexcept {
     auto last_sector = r->sectors().rbegin();
     if (last_sector != r->sectors().rend()) {
         auto last_subsector = (*last_sector)->sub().rbegin();
@@ -436,7 +540,7 @@ void Table<T, I>::insert_region_offset(const SuperRegion<I>* r, const I& r_secto
 }
 
 template<typename T, typename I>
-void Table<T, I>::insert_region_offset_row(const SuperRegion<I>* r,
+void Table<T, I>::insert_region_offset_row(const Region<I>* r,
                                            const I& r_sectors_count,
                                            const I& subregions_count,
                                            const I& y,
@@ -487,7 +591,7 @@ void Table<T, I>::debug_out() const {
 template<typename T, typename I>
 void Table<T, I>::insert_subsectors(const std::string& name, const std::vector<std::string>& subsectors) {
     const Sector<I>* sector = index_set_.sector(name);
-    const SuperSector<I>* i = sector->as_super();
+    const Sector<I>* i = sector->as_super();
     if (!i) {
         throw std::runtime_error("'" + name + "' is a subsector");
     }
@@ -515,7 +619,7 @@ void Table<T, I>::insert_subsectors(const std::string& name, const std::vector<s
 template<typename T, typename I>
 void Table<T, I>::insert_subregions(const std::string& name, const std::vector<std::string>& subregions) {
     const Region<I>* region = index_set_.region(name);
-    const SuperRegion<I>* r = region->as_super();
+    const Region<I>* r = region->as_super();
     if (!r) {
         throw std::runtime_error("'" + name + "' is a subregion");
     }

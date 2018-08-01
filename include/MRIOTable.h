@@ -44,11 +44,11 @@ class Table {
 
     void read_indices_from_csv(std::istream& indicesstream);
     void read_data_from_csv(std::istream& datastream, const T& threshold);
-    inline void insert_sector_offset(const SuperSector<I>* i, const I& i_regions_count, const I& subsectors_count) noexcept;
+    inline void insert_sector_offset(const Sector<I>* i, const I& i_regions_count, const I& subsectors_count) noexcept;
     inline void insert_sector_offset_row(
-        const SuperSector<I>* i, const I& i_regions_count, const I& subsectors_count, const I& y, const I& y_offset, const I& divide_by) noexcept;
-    inline void insert_region_offset(const SuperRegion<I>* r, const I& r_sectors_count, const I& subregions_count) noexcept;
-    inline void insert_region_offset_row(const SuperRegion<I>* r,
+        const Sector<I>* i, const I& i_regions_count, const I& subsectors_count, const I& y, const I& y_offset, const I& divide_by) noexcept;
+    inline void insert_region_offset(const Region<I>* r, const I& r_sectors_count, const I& subregions_count) noexcept;
+    inline void insert_region_offset_row(const Region<I>* r,
                                          const I& r_sectors_count,
                                          const I& subregions_count,
                                          const I& y,
@@ -56,6 +56,32 @@ class Table {
                                          const I& divide_by,
                                          const I& first_index,
                                          const I& last_index) noexcept;
+    template<typename... Arguments>
+    inline T build_sum_r(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const Arguments&... other) const noexcept;
+    template<typename... Arguments>
+    inline T build_sum_j(const Sector<I>* j, const Region<I>* s, const Arguments&... other) const noexcept;
+    template<typename... Arguments>
+    inline T build_sum_s(const Sector<I>* j, const Region<I>* s, const Arguments&... other) const noexcept;
+    template<typename Inner, typename... Arguments>
+    inline void add_sum(T& res, const std::vector<Inner*>& vec, const Arguments&... params) const noexcept;
+    template<typename Inner, typename... Arguments>
+    inline void add_sum(T& res, const std::vector<std::unique_ptr<Inner>>& vec, const Arguments&... params) const noexcept;
+    template<typename... Arguments>
+    inline void add_sum(T& res, const std::vector<std::unique_ptr<Sector<I>>>& vec, const bool, const Arguments&... params) const noexcept;
+    template<typename Inner, typename... Arguments>
+    inline void add_sum(T& res, const Inner* k, const Arguments&... params) const noexcept;
+    inline void add_sum(T& res, const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept;
+    template<typename... Arguments>
+    inline T build_basesum_j(const Sector<I>* j, const Region<I>* s, const Arguments&... other) const noexcept;
+    template<typename Inner, typename... Arguments>
+    inline void add_basesum(T& res, const std::vector<Inner*>& vec, const Arguments&... params) const noexcept;
+    template<typename Inner, typename... Arguments>
+    inline void add_basesum(T& res, const std::vector<std::unique_ptr<Inner>>& vec, const Arguments&... params) const noexcept;
+    template<typename... Arguments>
+    inline void add_basesum(T& res, const std::vector<std::unique_ptr<Sector<I>>>& vec, const bool, const Arguments&... params) const noexcept;
+    template<typename Inner, typename... Arguments>
+    inline void add_basesum(T& res, const Inner* k, const Arguments&... params) const noexcept;
+    inline void add_basesum(T& res, const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept;
 
   public:
     Table() {}
@@ -65,8 +91,8 @@ class Table {
     inline const IndexSet<I>& index_set() const { return index_set_; }
     void insert_subsectors(const std::string& name, const std::vector<std::string>& subsectors);
     void insert_subregions(const std::string& name, const std::vector<std::string>& subregions);
-    const T sum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept;
-    const T basesum(const SuperSector<I>* i, const SuperRegion<I>* r, const SuperSector<I>* j, const SuperRegion<I>* s) const noexcept;
+    T sum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept;
+    T basesum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept;
     void write_to_csv(std::ostream& indicesstream, std::ostream& datastream) const;
     void write_to_mrio(std::ostream& outstream) const;
 #ifdef LIBMRIO_WITH_NETCDF
@@ -126,12 +152,12 @@ class Table {
      *
      * @return Reference to value
      */
-    inline T& base(const SuperSector<I>* i, const SuperRegion<I>* r, const SuperSector<I>* j, const SuperRegion<I>* s) noexcept {
+    inline T& base(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) noexcept {
         assert(index_set_.base(i, r) >= 0);
         assert(index_set_.base(j, s) >= 0);
         return (*this)(index_set_.base(i, r), index_set_.base(j, s));
     }
-    inline const T& base(const SuperSector<I>* i, const SuperRegion<I>* r, const SuperSector<I>* j, const SuperRegion<I>* s) const noexcept {
+    inline const T& base(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
         assert(index_set_.base(i, r) >= 0);
         assert(index_set_.base(j, s) >= 0);
         return (*this)(index_set_.base(i, r), index_set_.base(j, s));

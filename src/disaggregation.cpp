@@ -18,6 +18,7 @@
 */
 
 #include "disaggregation.h"
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <fstream>
@@ -36,25 +37,42 @@
 namespace mrio {
 
 template<typename T, typename I, typename Func>
-static inline void for_all_sub(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, Func func) {
-    if (i->has_sub()) {
-        for (const auto& i_mu : i->as_super()->sub()) {
-            for_all_sub<T, I, Func>(i_mu, r, j, s, func);
-        }
-    } else if (r->has_sub()) {
-        for (const auto& r_lambda : r->as_super()->sub()) {
-            for_all_sub<T, I, Func>(i, r_lambda, j, s, func);
-        }
-    } else if (j->has_sub()) {
-        for (const auto& j_mu : j->as_super()->sub()) {
-            for_all_sub<T, I, Func>(i, r, j_mu, s, func);
-        }
-    } else if (s->has_sub()) {
-        for (const auto& s_lambda : s->as_super()->sub()) {
-            for_all_sub<T, I, Func>(i, r, j, s_lambda, func);
-        }
+static inline void do_for_all_sub(Func func, const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
+    func(i, r, j, s);
+}
+
+template<typename T, typename I, typename Inner, typename... Arguments>
+static inline void do_for_all_sub(const Inner* k, const Arguments&... params) {
+    do_for_all_sub<T, I>(params..., k);
+}
+
+template<typename T, typename I, typename Inner, typename... Arguments>
+static inline void do_for_all_sub(const std::vector<Inner*>& vec, const Arguments&... params) {
+    for (const auto k : vec) {
+        do_for_all_sub<T, I>(params..., k);
+    }
+}
+
+template<typename T, typename I, typename Func, typename... Arguments>
+static inline void for_all_sub(Func func, const Arguments&... params) {
+    do_for_all_sub<T, I>(params..., func);
+}
+
+template<typename T, typename I, typename... Arguments>
+static inline void for_all_sub(const Region<I>* r, const Arguments&... params) {
+    if (r->has_sub()) {
+        for_all_sub<T, I>(params..., r->as_super()->sub());
     } else {
-        func(i, r, j, s);
+        for_all_sub<T, I>(params..., r);
+    }
+}
+
+template<typename T, typename I, typename... Arguments>
+static inline void for_all_sub(const Sector<I>* i, const Arguments&... params) {
+    if (i->has_sub()) {
+        for_all_sub<T, I>(params..., i->as_super()->sub());
+    } else {
+        for_all_sub<T, I>(params..., i);
     }
 }
 
@@ -91,10 +109,32 @@ mrio::Table<T, I> disaggregate(const mrio::Table<T, I>& basetable, const setting
     mrio::Table<T, I> last_table{table.index_set(), 0};  // table in disaggregation used for accessing d-1 values
     mrio::Table<std::size_t, I> quality{table.index_set(), 0};
 
-    std::vector<typename IndexSet<I>::super_iterator::Index> super_indices;
+    struct FullIndex {
+        const Sector<I>* sector_from;
+        const Region<I>* region_from;
+        const Sector<I>* sector_to;
+        const Region<I>* region_to;
+    };
+
+    std::vector<FullIndex> full_indices;
     for (const auto& ir : table.index_set().super_indices) {
-        super_indices.emplace_back(ir);
+        if (ir.sector->has_sub() || ir.region->has_sub()) {
+            for (const auto& js : table.index_set().super_indices) {
+                full_indices.emplace_back(FullIndex{ir.sector, ir.region, js.sector, js.region});
+            }
+        } else {
+            for (const auto& js : table.index_set().super_indices) {
+                if (js.sector->has_sub() || js.region->has_sub()) {
+                    full_indices.emplace_back(FullIndex{ir.sector, ir.region, js.sector, js.region});
+                }
+            }
+        }
     }
+
+    std::sort(std::begin(full_indices), std::end(full_indices), [](const FullIndex& a, const FullIndex& b) {
+        return (a.region_from->has_sub() + a.sector_from->has_sub() + a.region_to->has_sub() + a.sector_to->has_sub())
+               < (b.region_from->has_sub() + b.sector_from->has_sub() + b.region_to->has_sub() + b.sector_to->has_sub());
+    });
 
     std::size_t d = 1;
     for (const auto& proxy_node : settings_node["proxies"].as_sequence()) {
@@ -105,24 +145,21 @@ mrio::Table<T, I> disaggregate(const mrio::Table<T, I>& basetable, const setting
         // approximation step:
         {
 #ifdef LIBMRIO_SHOW_PROGRESS
-            progressbar::ProgressBar bar(super_indices.size(), "Approximation");
+            progressbar::ProgressBar bar(full_indices.size(), "Approximation");
 #endif
 #pragma omp parallel for default(shared) schedule(guided)
-            for (std::size_t k = 0; k < super_indices.size(); ++k) {
-                const auto& ir = super_indices[k];
-                T value;
-                for (std::size_t l = 0; l < super_indices.size(); ++l) {
-                    const auto& js = super_indices[l];
-                    for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
-                                          if (proxy.apply(value, last_table, i, r, j, s)) {
-                                              if (!std::isnan(value)) {
-                                                  table(i, r, j, s) = value;
-                                                  quality(i, r, j, s) = d;
-                                              }
+            for (std::size_t k = 0; k < full_indices.size(); ++k) {
+                const auto& full_index = full_indices[k];
+                for_all_sub<T, I>(full_index.sector_from, full_index.region_from, full_index.sector_to, full_index.region_to,
+                                  [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
+                                      T value;
+                                      if (proxy.apply(value, last_table, i, r, j, s)) {
+                                          if (!std::isnan(value)) {
+                                              table(i, r, j, s) = value;
+                                              quality(i, r, j, s) = d;
                                           }
-                                      });
-                }
+                                      }
+                                  });
 #ifdef LIBMRIO_SHOW_PROGRESS
                 ++bar;
 #endif
@@ -132,39 +169,36 @@ mrio::Table<T, I> disaggregate(const mrio::Table<T, I>& basetable, const setting
         // adjustment step:
         {
 #ifdef LIBMRIO_SHOW_PROGRESS
-            progressbar::ProgressBar bar(super_indices.size(), "Adjustment");
+            progressbar::ProgressBar bar(full_indices.size(), "Adjustment");
 #endif
 #pragma omp parallel for default(shared) schedule(guided)
-            for (std::size_t k = 0; k < super_indices.size(); ++k) {
-                const auto& ir = super_indices[k];
-                for (std::size_t l = 0; l < super_indices.size(); ++l) {
-                    const auto& js = super_indices[l];
-                    const T& base = basetable.base(ir.sector, ir.region, js.sector, js.region);
-                    if (base > 0) {
-                        T sum_of_exact = 0;
-                        T sum_of_non_exact = 0;
-                        for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
+            for (std::size_t k = 0; k < full_indices.size(); ++k) {
+                const auto& full_index = full_indices[k];
+                const T& base = basetable.base(full_index.sector_from, full_index.region_from, full_index.sector_to, full_index.region_to);
+                if (base > 0) {
+                    T sum_of_exact = 0;
+                    T sum_of_non_exact = 0;
+                    for_all_sub<T, I>(full_index.sector_from, full_index.region_from, full_index.sector_to, full_index.region_to,
+                                      [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
+                                          if (quality(i, r, j, s) == d) {
+                                              sum_of_exact += table(i, r, j, s);
+                                          } else {
+                                              sum_of_non_exact += table(i, r, j, s);
+                                          }
+                                      });
+                    T correction_factor = base / (sum_of_exact + sum_of_non_exact);
+                    if (base > sum_of_exact && sum_of_non_exact > 0) {
+                        for_all_sub<T, I>(full_index.sector_from, full_index.region_from, full_index.sector_to, full_index.region_to,
                                           [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
-                                              if (quality(i, r, j, s) == d) {
-                                                  sum_of_exact += table(i, r, j, s);
-                                              } else {
-                                                  sum_of_non_exact += table(i, r, j, s);
+                                              if (quality(i, r, j, s) != d) {
+                                                  table(i, r, j, s) = (base - sum_of_exact) * table(i, r, j, s) / sum_of_non_exact;
                                               }
                                           });
-                        T correction_factor = base / (sum_of_exact + sum_of_non_exact);
-                        if (base > sum_of_exact && sum_of_non_exact > 0) {
-                            for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                              [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
-                                                  if (quality(i, r, j, s) != d) {
-                                                      table(i, r, j, s) = (base - sum_of_exact) * table(i, r, j, s) / sum_of_non_exact;
-                                                  }
-                                              });
-                        } else if (correction_factor < 1 || correction_factor > 1) {
-                            for_all_sub<T, I>(ir.sector, ir.region, js.sector, js.region,
-                                              [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
-                                                  table(i, r, j, s) = correction_factor * table(i, r, j, s);
-                                              });
-                        }
+                    } else if (correction_factor < 1 || correction_factor > 1) {
+                        for_all_sub<T, I>(full_index.sector_from, full_index.region_from, full_index.sector_to, full_index.region_to,
+                                          [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
+                                              table(i, r, j, s) = correction_factor * table(i, r, j, s);
+                                          });
                     }
                 }
 #ifdef LIBMRIO_SHOW_PROGRESS

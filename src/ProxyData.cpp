@@ -558,7 +558,7 @@ T ProxyData<T, I>::get_mapped_value(
                 for (const auto& k : *cluster) {
                     I from = table_indices(k->index, *r_p);
                     I to = table_indices(j_p, s_p);
-                    if (from != static_cast<I>(-1) && to != static_cast<I>(-1)) {
+                    if (from != IndexSet<I>::NOT_GIVEN && to != IndexSet<I>::NOT_GIVEN) {
                         sum += table(from, to);
                     } else {
                         // need to sum, but regions involved do not have corresponding sectors -> assume region does not have sector -> 0
