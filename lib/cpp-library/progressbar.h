@@ -232,7 +232,7 @@ class ProgressBar {
   public:
     const std::size_t total;
     std::string description;
-    float smoothing = 0.3;
+    float smoothing = 0.75;
     char bar_open = '[';
     char bar_close = ']';
     char bar_done = '=';
