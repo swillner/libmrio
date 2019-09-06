@@ -97,12 +97,6 @@ int main(int argc, char* argv[]) {
                         throw std::runtime_error("Could not open data file");
                     }
                     basetable.read_from_csv(indices, data, threshold);
-                } else if (type == "mrio") {
-                    std::ifstream data(filename);
-                    if (!data) {
-                        throw std::runtime_error("Could not open data file");
-                    }
-                    basetable.read_from_mrio(data, threshold);
 #ifdef LIBMRIO_WITH_NETCDF
                 } else if (type == "netcdf") {
                     basetable.read_from_netcdf(filename, threshold);
@@ -133,12 +127,6 @@ int main(int argc, char* argv[]) {
                         throw std::runtime_error("Could not create output file");
                     }
                     disaggregation.refined_table().write_to_csv(outfile);
-                } else if (type == "mrio") {
-                    std::ofstream outfile(filename);
-                    if (!outfile) {
-                        throw std::runtime_error("Could not create output file");
-                    }
-                    disaggregation.refined_table().write_to_mrio(outfile);
 #ifdef LIBMRIO_WITH_NETCDF
                 } else if (type == "netcdf") {
                     disaggregation.refined_table().write_to_netcdf(filename);
