@@ -5,8 +5,9 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
 add_library(libmrio STATIC ${CMAKE_CURRENT_LIST_DIR}/src/Disaggregation.cpp ${CMAKE_CURRENT_LIST_DIR}/src/MRIOIndexSet.cpp ${CMAKE_CURRENT_LIST_DIR}/src/MRIOTable.cpp)
-target_include_directories(libmrio PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include ${CMAKE_CURRENT_LIST_DIR}/lib/cpp-library)
-target_compile_options(libmrio PRIVATE "-std=c++11")
+target_include_directories(libmrio PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include)
+target_include_directories(libmrio PRIVATE ${CMAKE_CURRENT_LIST_DIR}/lib/cpp-library)
+set_property(TARGET libmrio PROPERTY CXX_STANDARD 11)
 
 option(LIBMRIO_WITH_NETCDF "NetCDF" ON)
 if(LIBMRIO_WITH_NETCDF)
