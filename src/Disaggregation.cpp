@@ -18,13 +18,15 @@
 */
 
 #include "Disaggregation.h"
+
 #include <cmath>
 #include <cstddef>
-#include <fstream>
+#include <fstream>  // IWYU pragma: keep
 #include <functional>
-#include <sstream>
+#include <sstream>  // IWYU pragma: keep
 #include <stdexcept>
 #include <string>
+
 #include "MRIOTable.h"
 #include "csv-parser.h"
 #include "settingsnode.h"
