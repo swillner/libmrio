@@ -19,7 +19,7 @@ add_git_version(mrio_disaggregate)
 
 include(libmrio.cmake)
 set_advanced_cpp_warnings(libmrio)
-target_link_libraries(mrio_disaggregate libmrio)
+target_link_libraries(mrio_disaggregate PRIVATE libmrio)
 
 include(lib/settingsnode/settingsnode.cmake)
 include_settingsnode(mrio_disaggregate)
