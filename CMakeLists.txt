@@ -4,6 +4,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 include(cmake/helpers.cmake)
 include(cmake/libraries.cmake)
 
+add_system_paths()
 set_default_build_type(Release)
 
 project(mrio_disaggregate)

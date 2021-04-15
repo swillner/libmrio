@@ -37,7 +37,7 @@ using T = double;       // Data type
 
 static void print_usage(const char* program_name) {
     std::cerr << "Regional and sectoral disaggregation of multi-regional input-output tables\n"
-                 "Version:  " MRIO_DISAGGREGATE_VERSION
+                 "Version:  " << mrio_disaggregate::version <<
                  "\n"
                  "Author:   Sven Willner <sven.willner@pik-potsdam.de>\n"
                  "\n"
@@ -70,7 +70,7 @@ int main(int argc, char* argv[]) {
         const std::string arg = argv[1];
         if (arg.length() > 1 && arg[0] == '-') {
             if (arg == "--version" || arg == "-v") {
-                std::cout << MRIO_DISAGGREGATE_VERSION << std::endl;
+                std::cout << mrio_disaggregate::version << std::endl;
             } else if (arg == "--help" || arg == "-h") {
                 print_usage(argv[0]);
             } else {
