@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.8)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
 include(cmake/helpers.cmake)
 include(cmake/libraries.cmake)
+add_system_paths()
 
 set_default_build_type(Release)
 
