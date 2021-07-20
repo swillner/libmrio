@@ -18,6 +18,7 @@
 */
 
 #include "disaggregation.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -26,6 +27,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+
 #include "MRIOTable.h"
 #include "ProxyData.h"
 #include "csv-parser.h"
@@ -54,7 +56,8 @@ static inline void do_for_all_sub(const std::vector<Inner*>& vec, const Argument
 }
 
 template<typename T, typename I, typename Func, typename... Arguments>
-static inline void for_all_sub(Func func, const Arguments&... params) {
+static inline typename std::enable_if<!(std::is_same<Func, const Region<I>*>::value || std::is_same<Func, const Sector<I>*>::value), void>::type for_all_sub(
+    Func func, const Arguments&... params) {
     do_for_all_sub<T, I>(params..., func);
 }
 
