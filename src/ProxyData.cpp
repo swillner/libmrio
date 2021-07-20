@@ -570,7 +570,81 @@ T ProxyData<T, I>::get_mapped_value(
                 debug("mapped x to 1 -> no summing necessary");
             }
         }
-        // TODO Same for r j s
+        if (application->r != nullptr && application->r->mapped) {
+            debug("r has mapping -> calc flow mapping share (" << debugp(i_p, r_p, j_p, s_p) << ")");
+            T sum = 0;
+            const auto& cluster = application->r->native_indices[r_p->level_index()]->native_cluster;
+            if (!cluster) {
+                debug(r_p->name << " not in mapping");
+                return std::numeric_limits<T>::quiet_NaN();
+            }
+            if (cluster->size() > 0) {
+                debug("sum over native cluster " << *cluster);
+                for (const auto& k : *cluster) {
+                    I from = table_indices(*i_p, k->index);
+                    I to = table_indices(j_p, s_p);
+                    if (from != IndexSet<I>::NOT_GIVEN && to != IndexSet<I>::NOT_GIVEN) {
+                        sum += table(from, to);
+                    } else {
+                        // need to sum, but regions involved do not have corresponding sectors -> assume region does not have sector -> 0
+                        debug("cannot use " << debugp(i_p, k, j_p, s_p));
+                    }
+                }
+                proxy_value = proxy_value * table(i_p, r_p, j_p, s_p) / sum;
+            } else {
+                debug("mapped x to 1 -> no summing necessary");
+            }
+        }
+        if (application->j != nullptr && application->j->mapped) {
+            debug("j has mapping -> calc flow mapping share (" << debugp(i_p, r_p, j_p, s_p) << ")");
+            T sum = 0;
+            const auto& cluster = application->j->native_indices[j_p->level_index()]->native_cluster;
+            if (!cluster) {
+                debug(j_p->name << " not in mapping");
+                return std::numeric_limits<T>::quiet_NaN();
+            }
+            if (cluster->size() > 0) {
+                debug("sum over native cluster " << *cluster);
+                for (const auto& k : *cluster) {
+                    I from = table_indices(i_p, r_p);
+                    I to = table_indices(k->index, *s_p);
+                    if (from != IndexSet<I>::NOT_GIVEN && to != IndexSet<I>::NOT_GIVEN) {
+                        sum += table(from, to);
+                    } else {
+                        // need to sum, but regions involved do not have corresponding sectors -> assume region does not have sector -> 0
+                        debug("cannot use " << debugp(i_p, r_p, k, s_p));
+                    }
+                }
+                proxy_value = proxy_value * table(i_p, r_p, j_p, s_p) / sum;
+            } else {
+                debug("mapped x to 1 -> no summing necessary");
+            }
+        }
+        if (application->s != nullptr && application->s->mapped) {
+            debug("s has mapping -> calc flow mapping share (" << debugp(i_p, r_p, j_p, s_p) << ")");
+            T sum = 0;
+            const auto& cluster = application->s->native_indices[s_p->level_index()]->native_cluster;
+            if (!cluster) {
+                debug(s_p->name << " not in mapping");
+                return std::numeric_limits<T>::quiet_NaN();
+            }
+            if (cluster->size() > 0) {
+                debug("sum over native cluster " << *cluster);
+                for (const auto& k : *cluster) {
+                    I from = table_indices(i_p, r_p);
+                    I to = table_indices(*j_p, k->index);
+                    if (from != IndexSet<I>::NOT_GIVEN && to != IndexSet<I>::NOT_GIVEN) {
+                        sum += table(from, to);
+                    } else {
+                        // need to sum, but regions involved do not have corresponding sectors -> assume region does not have sector -> 0
+                        debug("cannot use " << debugp(i_p, r_p, j_p, k));
+                    }
+                }
+                proxy_value = proxy_value * table(i_p, r_p, j_p, s_p) / sum;
+            } else {
+                debug("mapped x to 1 -> no summing necessary");
+            }
+        }
     }
     return proxy_value;
 }
