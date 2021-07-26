@@ -30,7 +30,8 @@ template<typename T, typename I>
 class Table;
 
 template<typename T, typename I>
-mrio::Table<T, I> disaggregate(const mrio::Table<T, I>& basetable, const settings::SettingsNode& settings);
+Table<T, I> disaggregate(const Table<T, I>& basetable, const settings::SettingsNode& settings);
+
 }  // namespace mrio
 
 #endif

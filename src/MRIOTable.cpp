@@ -50,164 +50,115 @@ namespace mrio {
 
 template<typename T, typename I>
 T Table<T, I>::sum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
-    if (unlikely(i == nullptr)) {
-        if (unlikely(r == nullptr)) {
-            return build_sum_j(j, s, index_set_.supersectors(), true);
-        }
-        return build_sum_r(i, r, j, s, index_set_.supersectors());
-    }
-    if (unlikely(i->has_sub())) {
-        return build_sum_r(i, r, j, s, i->sub());
-    }
-    return build_sum_r(i, r, j, s, i);
-}
-
-template<typename T, typename I>
-template<typename... Arguments>
-T Table<T, I>::build_sum_r(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s, const Arguments&... other) const noexcept {
-    if (unlikely(r == nullptr)) {
-        return build_sum_j(j, s, other..., i->super()->regions());
-    }
-    if (unlikely(r->has_sub())) {
-        return build_sum_j(j, s, other..., r->sub());
-    }
-    return build_sum_j(j, s, other..., r);
-}
-
-template<typename T, typename I>
-template<typename... Arguments>
-T Table<T, I>::build_sum_j(const Sector<I>* j, const Region<I>* s, const Arguments&... other) const noexcept {
-    if (unlikely(j == nullptr)) {
-        if (unlikely(s == nullptr)) {
-            T res = 0;
-            add_sum(res, other..., index_set_.supersectors(), true);
-            return res;
-        }
-        return build_sum_s(j, s, other..., index_set_.supersectors());
-    }
-    if (unlikely(j->has_sub())) {
-        return build_sum_s(j, s, other..., j->sub());
-    }
-    return build_sum_s(j, s, other..., j);
-}
-
-template<typename T, typename I>
-template<typename... Arguments>
-T Table<T, I>::build_sum_s(const Sector<I>* j, const Region<I>* s, const Arguments&... other) const noexcept {
     T res = 0;
-    if (unlikely(s == nullptr)) {
-        add_sum(res, other..., j->super()->regions());
-    } else if (unlikely(s->has_sub())) {
-        add_sum(res, other..., s->sub());
-    } else {
-        add_sum(res, other..., s);
-    }
+    build_sum_source<false>(res, i, r, j, s);
     return res;
-}
-
-template<typename T, typename I>
-template<typename Inner, typename... Arguments>
-void Table<T, I>::add_sum(T& res, const std::vector<Inner*>& vec, const Arguments&... params) const noexcept {
-    for (const auto k : vec) {
-        add_sum(res, params..., k);
-    }
-}
-
-template<typename T, typename I>
-template<typename Inner, typename... Arguments>
-void Table<T, I>::add_sum(T& res, const std::vector<std::unique_ptr<Inner>>& vec, const Arguments&... params) const noexcept {
-    for (const auto& k : vec) {
-        add_sum(res, params..., k.get());
-    }
-}
-
-template<typename T, typename I>
-template<typename... Arguments>
-void Table<T, I>::add_sum(T& res, const std::vector<std::unique_ptr<Sector<I>>>& vec, const bool, const Arguments&... params) const noexcept {
-    for (const auto& i : vec) {
-        for (const auto r : i->super()->regions()) {
-            add_sum(res, params..., i.get(), r);
-        }
-    }
-}
-
-template<typename T, typename I>
-template<typename Inner, typename... Arguments>
-void Table<T, I>::add_sum(T& res, const Inner* k, const Arguments&... params) const noexcept {
-    add_sum(res, params..., k);
-}
-
-template<typename T, typename I>
-void Table<T, I>::add_sum(T& res, const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
-    res += (*this)(i, r, j, s);
 }
 
 template<typename T, typename I>
 T Table<T, I>::basesum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
-    if (i == nullptr) {
-        if (r == nullptr) {
-            return build_basesum_j(j, s, index_set_.supersectors(), true);
-        }
-        return build_basesum_j(j, s, index_set_.supersectors(), r);
-    }
-    if (r == nullptr) {
-        return build_basesum_j(j, s, i, i->regions());
-    }
-    return build_basesum_j(j, s, i, r);
-}
-
-template<typename T, typename I>
-template<typename... Arguments>
-T Table<T, I>::build_basesum_j(const Sector<I>* j, const Region<I>* s, const Arguments&... params) const noexcept {
     T res = 0;
-    if (j == nullptr) {
-        if (s == nullptr) {
-            add_basesum(res, params..., index_set_.supersectors(), true);
-        } else {
-            add_basesum(res, params..., index_set_.supersectors(), s);
-        }
-    } else if (s == nullptr) {
-        add_basesum(res, params..., j, j->regions());
-    } else {
-        add_basesum(res, params..., j, s);
-    }
+    build_sum_source<true>(res, i, r, j, s);
     return res;
 }
-template<typename T, typename I>
-template<typename Inner, typename... Arguments>
-void Table<T, I>::add_basesum(T& res, const std::vector<Inner*>& vec, const Arguments&... params) const noexcept {
-    for (const auto k : vec) {
-        add_basesum(res, params..., k);
-    }
-}
 
 template<typename T, typename I>
-template<typename Inner, typename... Arguments>
-void Table<T, I>::add_basesum(T& res, const std::vector<std::unique_ptr<Inner>>& vec, const Arguments&... params) const noexcept {
-    for (const auto& k : vec) {
-        add_basesum(res, params..., k.get());
-    }
-}
-
-template<typename T, typename I>
-template<typename... Arguments>
-void Table<T, I>::add_basesum(T& res, const std::vector<std::unique_ptr<Sector<I>>>& vec, const bool, const Arguments&... params) const noexcept {
-    for (const auto& i : vec) {
-        for (const auto r : i->super()->regions()) {
-            add_basesum(res, params..., i.get(), r);
+template<bool use_base>
+void Table<T, I>::build_sum_source(T& res, const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
+    if (unlikely(i == nullptr)) {
+        if (unlikely(r == nullptr)) {
+            build_sum_target<use_base>(res, index_set_.supersectors(), true, j, s);
+        } else {
+            build_sum_target<use_base>(res, index_set_.supersectors(), r, j, s);
+        }
+    } else if (unlikely(i->has_sub())) {
+        if (unlikely(r == nullptr)) {
+            build_sum_target<use_base>(res, i->sub(), i->super()->regions(), j, s);
+        } else if (unlikely(r->has_sub())) {
+            build_sum_target<use_base>(res, i->sub(), r->sub(), j, s);
+        } else {
+            build_sum_target<use_base>(res, i->sub(), r, j, s);
+        }
+    } else {
+        if (unlikely(r == nullptr)) {
+            build_sum_target<use_base>(res, i, i->super()->regions(), j, s);
+        } else if (unlikely(r->has_sub())) {
+            build_sum_target<use_base>(res, i, r->sub(), j, s);
+        } else {
+            build_sum_target<use_base>(res, i, r, j, s);
         }
     }
 }
 
 template<typename T, typename I>
-template<typename Inner, typename... Arguments>
-void Table<T, I>::add_basesum(T& res, const Inner* k, const Arguments&... params) const noexcept {
-    add_basesum(res, params..., k);
+template<bool use_base, typename Arg_i, typename Arg_r>
+void Table<T, I>::build_sum_target(T& res, Arg_i&& i, Arg_r&& r, const Sector<I>* j, const Region<I>* s) const noexcept {
+    if (unlikely(j == nullptr)) {
+        if (unlikely(s == nullptr)) {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), index_set_.supersectors(), true);
+        } else {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), index_set_.supersectors(), s);
+        }
+    } else if (unlikely(j->has_sub())) {
+        if (unlikely(s == nullptr)) {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), j->sub(), j->super()->regions());
+        } else if (unlikely(s->has_sub())) {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), j->sub(), s->sub());
+        } else {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), j->sub(), s);
+        }
+    } else {
+        if (unlikely(s == nullptr)) {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), j, j->super()->regions());
+        } else if (unlikely(s->has_sub())) {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), j, s->sub());
+        } else {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), j, s);
+        }
+    }
 }
 
 template<typename T, typename I>
-void Table<T, I>::add_basesum(T& res, const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
-    res += base(i, r, j, s);
+template<bool use_base, int c, typename Arg1, typename Arg2, typename Arg3, typename Arg4>
+void Table<T, I>::add_sum(T& res, const std::vector<Arg1*>& arg1, Arg2&& arg2, Arg3&& arg3, Arg4&& arg4) const noexcept {
+    static_assert(c < 4);
+    for (const auto k : arg1) {
+        add_sum<use_base, c + 1>(res, std::forward<Arg2>(arg2), std::forward<Arg3>(arg3), std::forward<Arg4>(arg4), k);
+    }
+}
+
+template<typename T, typename I>
+template<bool use_base, int c, typename Arg1, typename Arg2, typename Arg3, typename Arg4>
+void Table<T, I>::add_sum(T& res, const std::vector<std::unique_ptr<Arg1>>& arg1, Arg2&& arg2, Arg3&& arg3, Arg4&& arg4) const noexcept {
+    static_assert(c < 4);
+    for (const auto& k : arg1) {
+        add_sum<use_base, c + 1>(res, std::forward<Arg2>(arg2), std::forward<Arg3>(arg3), std::forward<Arg4>(arg4), k.get());
+    }
+}
+
+template<typename T, typename I>
+template<bool use_base, int c, typename Arg3, typename Arg4>
+void Table<T, I>::add_sum(T& res, const std::vector<std::unique_ptr<Sector<I>>>& arg1, bool, Arg3&& arg3, Arg4&& arg4) const noexcept {
+    static_assert(c < 4);
+    for (const auto& sec : arg1) {
+        for (const auto& reg : sec->super()->regions()) {
+            add_sum<use_base, c + 2>(res, std::forward<Arg3>(arg3), std::forward<Arg4>(arg4), sec.get(), reg);
+        }
+    }
+}
+
+template<typename T, typename I>
+template<bool use_base, int c, typename Arg1, typename Arg2, typename Arg3, typename Arg4>
+void Table<T, I>::add_sum(T& res, const Arg1* arg1, Arg2&& arg2, Arg3&& arg3, Arg4&& arg4) const noexcept {
+    if constexpr (c < 4) {
+        add_sum<use_base, c + 1>(res, std::forward<Arg2>(arg2), std::forward<Arg3>(arg3), std::forward<Arg4>(arg4), arg1);
+    } else {
+        if constexpr (use_base) {
+            res += base(arg1, arg2, arg3, arg4);
+        } else {
+            res += (*this)(arg1, arg2, arg3, arg4);
+        }
+    }
 }
 
 template<typename T, typename I>
@@ -565,7 +516,7 @@ void Table<T, I>::insert_region_offset_row(const Region<I>* r,
 
 template<typename T, typename I>
 void Table<T, I>::debug_out() const {
-#ifdef LIBMRIO_VERBOSE
+#ifdef LIBMRIO_VERY_VERBOSE
     std::cout << "\n====\n";
     std::cout << std::setprecision(3) << std::fixed;
     for (const auto& from : index_set_.total_indices) {
@@ -647,4 +598,5 @@ void Table<T, I>::insert_subregions(const std::string& name, const std::vector<s
 template class Table<float, std::size_t>;
 template class Table<double, std::size_t>;
 template class Table<int, std::size_t>;
+
 }  // namespace mrio

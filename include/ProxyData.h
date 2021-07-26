@@ -48,6 +48,55 @@ class Sector;
 template<typename T, typename I>
 class Table;
 
+template<typename I>
+struct FullIndex {
+    const Sector<I>* i;
+    const Region<I>* r;
+    const Sector<I>* j;
+    const Region<I>* s;
+};
+
+template<typename T, typename I, typename Func>
+inline void do_for_all_sub(Func func, const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
+    func(i, r, j, s);
+}
+
+template<typename T, typename I, typename Inner, typename... Arguments>
+inline void do_for_all_sub(const Inner* k, const Arguments&... params) {
+    do_for_all_sub<T, I>(params..., k);
+}
+
+template<typename T, typename I, typename Inner, typename... Arguments>
+inline void do_for_all_sub(const std::vector<Inner*>& vec, const Arguments&... params) {
+    for (const auto k : vec) {
+        do_for_all_sub<T, I>(params..., k);
+    }
+}
+
+template<typename T, typename I, typename Func, typename... Arguments>
+inline typename std::enable_if<!(std::is_same<Func, const Region<I>*>::value || std::is_same<Func, const Sector<I>*>::value), void>::type for_all_sub(
+    Func func, const Arguments&... params) {
+    do_for_all_sub<T, I>(params..., func);
+}
+
+template<typename T, typename I, typename... Arguments>
+inline void for_all_sub(const Region<I>* r, const Arguments&... params) {
+    if (r->has_sub()) {
+        for_all_sub<T, I>(params..., r->as_super()->sub());
+    } else {
+        for_all_sub<T, I>(params..., r);
+    }
+}
+
+template<typename T, typename I, typename... Arguments>
+inline void for_all_sub(const Sector<I>* i, const Arguments&... params) {
+    if (i->has_sub()) {
+        for_all_sub<T, I>(params..., i->as_super()->sub());
+    } else {
+        for_all_sub<T, I>(params..., i);
+    }
+}
+
 template<typename T, typename I>
 class ProxyData {
   protected:
@@ -76,8 +125,7 @@ class ProxyData {
     };
     struct ProxyIndex {
         enum class Type { SECTOR, SUBSECTOR, REGION, SUBREGION };
-        ProxyIndex(bool mapped_p, Type type_p)
-            : mapped(mapped_p), type(type_p), sub(type_p == Type::SUBSECTOR || type_p == Type::SUBREGION) {}
+        ProxyIndex(bool mapped_p, Type type_p) : mapped(mapped_p), type(type_p), sub(type_p == Type::SUBSECTOR || type_p == Type::SUBREGION) {}
         const bool mapped;
         const bool sub;
         const Type type;
@@ -97,17 +145,23 @@ class ProxyData {
         ProxyIndex* r = nullptr;
         ProxyIndex* j = nullptr;
         ProxyIndex* s = nullptr;
+        Application() = default;
+        Application(Application* application1, Application* application2);
+        Application(ProxyIndex* i_p, ProxyIndex* r_p, ProxyIndex* j_p, ProxyIndex* s_p) : i(i_p), r(r_p), j(j_p), s(s_p) {}
+        inline T get_flow(const Table<T, I>& table, const Sector<I>* i_p, const Region<I>* r_p, const Sector<I>* j_p, const Region<I>* s_p) const;
+        inline T get_flow_share_denominator(
+            const Table<T, I>& table, const Sector<I>* i_p, const Region<I>* r_p, const Sector<I>* j_p, const Region<I>* s_p) const;
         inline bool applies_to(const Sector<I>* i_p, const Region<I>* r_p, const Sector<I>* j_p, const Region<I>* s_p) const {
-            return (i == nullptr || i->sub == i_p->is_sub()) && (r == nullptr || r->sub == r_p->is_sub()) && (j == nullptr || j->sub == j_p->is_sub())
-                   && (s == nullptr || s->sub == s_p->is_sub());
+            return (i == nullptr || i->sub == i_p->has_sub()) && (r == nullptr || r->sub == r_p->has_sub()) && (j == nullptr || j->sub == j_p->has_sub())
+                   && (s == nullptr || s->sub == s_p->has_sub());
         }
 #ifdef LIBMRIO_VERBOSE
         friend std::ostream& operator<<(std::ostream& os, const Application& a) {
             return os << (a.i == nullptr ? "" : "i") << (a.r == nullptr ? "" : "r") << (a.j == nullptr ? "" : "j") << (a.s == nullptr ? "" : "s");
         }
 #endif
-        T get_flow_share(const Table<T, I>& table, const Sector<I>* i_p, const Region<I>* r_p, const Sector<I>* j_p, const Region<I>* s_p) const;
     };
+
     std::vector<T> data;
     std::vector<std::unique_ptr<ProxyIndex>> indices;
     std::vector<std::unique_ptr<Application>> applications;
@@ -142,8 +196,11 @@ class ProxyData {
 
   public:
     explicit ProxyData(IndexSet<I> table_indices_p) : table_indices(std::move(table_indices_p)) {}
-    bool apply(T& result, const Table<T, I>& table, const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const;
     void read_from_file(const settings::SettingsNode& settings_node);
+    void approximate(
+        const std::vector<FullIndex<I>>& full_indices, Table<T, I>& table, Table<std::size_t, I> quality, const Table<T, I>& last_table, std::size_t d) const;
+    void adjust(
+        const std::vector<FullIndex<I>>& full_indices, Table<T, I>& table, Table<std::size_t, I> quality, const Table<T, I>& basetable, std::size_t d) const;
 };
 }  // namespace mrio
 

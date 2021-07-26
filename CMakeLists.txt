@@ -12,7 +12,8 @@ project(mrio_disaggregate)
 add_executable(mrio_disaggregate src/main.cpp)
 
 target_include_directories(mrio_disaggregate PRIVATE include)
-target_compile_options(mrio_disaggregate PRIVATE "-std=c++11")
+target_compile_options(mrio_disaggregate PUBLIC -std=c++17)
+set_property(TARGET mrio_disaggregate PROPERTY CXX_STANDARD 17)
 
 set_advanced_cpp_warnings(mrio_disaggregate)
 set_build_type_specifics(mrio_disaggregate)
@@ -26,7 +27,7 @@ target_link_libraries(mrio_disaggregate PRIVATE libmrio)
 include(lib/settingsnode/settingsnode.cmake)
 include_settingsnode(mrio_disaggregate)
 
-include_yaml_cpp(mrio_disaggregate ON "yaml-cpp-0.6.2")
+include_yaml_cpp(mrio_disaggregate ON GIT_TAG "yaml-cpp-0.6.3")
 
 add_cpp_tools(mrio_disaggregate)
 add_cpp_tools(libmrio)

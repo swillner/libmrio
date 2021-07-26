@@ -10,7 +10,8 @@ add_library(libmrio STATIC
   ${CMAKE_CURRENT_LIST_DIR}/src/MRIOTable.cpp
   ${CMAKE_CURRENT_LIST_DIR}/src/ProxyData.cpp)
 target_include_directories(libmrio PUBLIC ${CMAKE_CURRENT_LIST_DIR}/include ${CMAKE_CURRENT_LIST_DIR}/lib/cpp-library)
-target_compile_options(libmrio PRIVATE "-std=c++11")
+target_compile_options(libmrio PUBLIC -std=c++17)
+set_property(TARGET libmrio PROPERTY CXX_STANDARD 17)
 
 option(LIBMRIO_PARALLELIZATION "" ON)
 if(LIBMRIO_PARALLELIZATION)
@@ -26,7 +27,7 @@ if(LIBMRIO_WITH_NETCDF)
   message(STATUS "NetCDF library: ${NETCDF_LIBRARY}")
   target_link_libraries(libmrio PRIVATE netcdf)
 
-include_netcdf_cxx4(libmrio ON v4.3.0)
+  include_netcdf_cxx4(libmrio ON GIT_TAG "v4.3.0")
   target_compile_definitions(libmrio PUBLIC LIBMRIO_WITH_NETCDF)
 endif()
 

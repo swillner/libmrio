@@ -17,11 +17,15 @@
   along with libmrio.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <fenv.h>
 #include <exception>
 #include <fstream>  // IWYU pragma: keep
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#ifdef LIBMRIO_VERBOSE
+#include <iomanip>
+#endif
 #include "MRIOTable.h"
 #include "disaggregation.h"
 #ifdef LIBMRIO_SHOW_PROGRESS
@@ -37,8 +41,9 @@ using T = double;       // Data type
 
 static void print_usage(const char* program_name) {
     std::cerr << "Regional and sectoral disaggregation of multi-regional input-output tables\n"
-                 "Version:  " << mrio_disaggregate::version <<
-                 "\n"
+                 "Version:  "
+              << mrio_disaggregate::version
+              << "\n"
                  "Author:   Sven Willner <sven.willner@pik-potsdam.de>\n"
                  "\n"
                  "Algorithm described in:\n"
@@ -67,6 +72,7 @@ int main(int argc, char* argv[]) {
             print_usage(argv[0]);
             return 1;
         }
+
         const std::string arg = argv[1];
         if (arg.length() > 1 && arg[0] == '-') {
             if (arg == "--version" || arg == "-v") {
@@ -89,6 +95,14 @@ int main(int argc, char* argv[]) {
                 }
                 settings = settings::SettingsNode(std::unique_ptr<settings::YAML>(new settings::YAML(settings_file)));
             }
+
+            if (settings["check_divbyzero"].as<bool>(false)) {
+                feenableexcept(FE_DIVBYZERO);
+            }
+
+#ifdef LIBMRIO_VERBOSE
+            std::cout << std::setprecision(3) << std::fixed;
+#endif
 
             mrio::Table<T, I> basetable;
             {

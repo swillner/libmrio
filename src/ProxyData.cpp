@@ -20,6 +20,7 @@
 #include "ProxyData.h"
 #include <cmath>
 #include <fstream>
+#include <iomanip>
 #include <limits>
 #include <memory>
 #include <string>
@@ -27,6 +28,7 @@
 #include <vector>
 #include "MRIOTable.h"
 #include "csv-parser.h"
+#include "progressbar.h"
 #include "settingsnode.h"
 
 #ifdef LIBMRIO_VERBOSE
@@ -36,13 +38,13 @@ struct DebugGroupGuard {
     ~DebugGroupGuard() { --debug_group_level; }
 };
 std::size_t DebugGroupGuard::debug_group_level = 0;
-#define debug(a)                                                               \
-    {                                                                          \
-        for (std::size_t i = 0; i < DebugGroupGuard::debug_group_level; ++i) { \
-            std::cout << "  ";                                                 \
-        }                                                                      \
-        std::cout << a << std::endl;                                           \
-    }                                                                          \
+#define debug(a)                                                                                                   \
+    {                                                                                                              \
+        for (std::size_t debug_param_i = 0; debug_param_i < DebugGroupGuard::debug_group_level; ++debug_param_i) { \
+            std::cout << "  ";                                                                                     \
+        }                                                                                                          \
+        std::cout << a << std::endl;                                                                               \
+    }                                                                                                              \
     DebugGroupGuard _debug_group_guard;
 #define debugp(i, r, j, s) ((i) ? (i)->name : "") << ":" << ((r) ? (r)->name : "") << "->" << ((j) ? (j)->name : "") << ":" << ((s) ? (s)->name : "")
 #define debug_begin_group() \
@@ -467,19 +469,6 @@ void ProxyData<T, I>::read_from_file(const settings::SettingsNode& settings_node
 }
 
 template<typename T, typename I>
-typename ProxyData<T, I>::Application* ProxyData<T, I>::find_application_from(
-    std::size_t& index, const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const {
-    for (; index < applications.size(); ++index) {
-        auto application = applications[index].get();
-        if (application->applies_to(i, r, j, s)) {
-            ++index;
-            return application;
-        }
-    }
-    return nullptr;
-}
-
-template<typename T, typename I>
 inline T ProxyData<T, I>::sum_proxy_over_all_foreign_clusters_helper(I index,
                                                                      I level_index,
                                                                      const ProxyIndex* proxy_index,
@@ -565,7 +554,7 @@ T ProxyData<T, I>::get_mapped_value(
                         debug("cannot use " << debugp(k, r_p, j_p, s_p));
                     }
                 }
-                proxy_value = proxy_value * table(i_p, r_p, j_p, s_p) / sum;
+                proxy_value *= table(i_p, r_p, j_p, s_p) / sum;
             } else {
                 debug("mapped x to 1 -> no summing necessary");
             }
@@ -590,7 +579,7 @@ T ProxyData<T, I>::get_mapped_value(
                         debug("cannot use " << debugp(i_p, k, j_p, s_p));
                     }
                 }
-                proxy_value = proxy_value * table(i_p, r_p, j_p, s_p) / sum;
+                proxy_value *= table(i_p, r_p, j_p, s_p) / sum;
             } else {
                 debug("mapped x to 1 -> no summing necessary");
             }
@@ -615,7 +604,7 @@ T ProxyData<T, I>::get_mapped_value(
                         debug("cannot use " << debugp(i_p, r_p, k, s_p));
                     }
                 }
-                proxy_value = proxy_value * table(i_p, r_p, j_p, s_p) / sum;
+                proxy_value *= table(i_p, r_p, j_p, s_p) / sum;
             } else {
                 debug("mapped x to 1 -> no summing necessary");
             }
@@ -640,7 +629,7 @@ T ProxyData<T, I>::get_mapped_value(
                         debug("cannot use " << debugp(i_p, r_p, j_p, k));
                     }
                 }
-                proxy_value = proxy_value * table(i_p, r_p, j_p, s_p) / sum;
+                proxy_value *= table(i_p, r_p, j_p, s_p) / sum;
             } else {
                 debug("mapped x to 1 -> no summing necessary");
             }
@@ -650,46 +639,211 @@ T ProxyData<T, I>::get_mapped_value(
 }
 
 template<typename T, typename I>
-T ProxyData<T, I>::Application::get_flow_share(
+inline T ProxyData<T, I>::Application::get_flow(
     const Table<T, I>& table, const Sector<I>* i_p, const Region<I>* r_p, const Sector<I>* j_p, const Region<I>* s_p) const {
-    // Index k not in application -> take overall share (k / nullptr)
-    // Index k is in application as super index -> take (pontential) share of super index (k / k->super())
-    // Index k is in application as sub index -> use baseline values, no share (k->parent() / k->parent())
-    T res = table.sum((i == nullptr) ? i_p : (i->sub ? i_p->parent() : i_p), (r == nullptr) ? r_p : (r->sub ? r_p->parent() : r_p),
-                      (j == nullptr) ? j_p : (j->sub ? j_p->parent() : j_p), (s == nullptr) ? s_p : (s->sub ? s_p->parent() : s_p))
-            / table.sum((i == nullptr) ? nullptr : (i->sub ? i_p->parent() : i_p->super()), (r == nullptr) ? nullptr : (r->sub ? r_p->parent() : r_p->super()),
-                        (j == nullptr) ? nullptr : (j->sub ? j_p->parent() : j_p->super()), (s == nullptr) ? nullptr : (s->sub ? s_p->parent() : s_p->super()));
-    debug("get_flow_share(" << debugp(i_p, r_p, j_p, s_p) << ") = "
-                            << debugp((i == nullptr) ? i_p : (i->sub ? i_p->parent() : i_p), (r == nullptr) ? r_p : (r->sub ? r_p->parent() : r_p),
-                                      (j == nullptr) ? j_p : (j->sub ? j_p->parent() : j_p), (s == nullptr) ? s_p : (s->sub ? s_p->parent() : s_p))
-                            << " / "
-                            << debugp((i == nullptr) ? nullptr : (i->sub ? i_p->parent() : i_p->super()),
-                                      (r == nullptr) ? nullptr : (r->sub ? r_p->parent() : r_p->super()),
-                                      (j == nullptr) ? nullptr : (j->sub ? j_p->parent() : j_p->super()),
-                                      (s == nullptr) ? nullptr : (s->sub ? s_p->parent() : s_p->super()))
-                            << " = " << res);
-    return res;
+    const auto i_e = (i == nullptr) ? i_p : (i->sub ? i_p->parent() : i_p);
+    const auto r_e = (r == nullptr) ? r_p : (r->sub ? r_p->parent() : r_p);
+    const auto j_e = (j == nullptr) ? j_p : (j->sub ? j_p->parent() : j_p);
+    const auto s_e = (s == nullptr) ? s_p : (s->sub ? s_p->parent() : s_p);
+    const auto flow = table.sum(i_e, r_e, j_e, s_e);
+    debug("flow " << debugp(i_e, r_e, j_e, s_e) << " = " << flow);
+    return flow;
 }
 
 template<typename T, typename I>
-bool ProxyData<T, I>::apply(T& result, const Table<T, I>& table, const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const {
-    std::size_t application_index = 0;
-    auto application = find_application_from(application_index, i, r, j, s);
-    if (application) {
-        debug("\napplication " << *application << " applies to " << debugp(i, r, j, s));
-        result = application->get_flow_share(table, i, r, j, s) * get_mapped_value(application, table, i, r, j, s);
+inline T ProxyData<T, I>::Application::get_flow_share_denominator(
+    const Table<T, I>& table, const Sector<I>* i_p, const Region<I>* r_p, const Sector<I>* j_p, const Region<I>* s_p) const {
+    const auto i_d = (i == nullptr) ? nullptr : i_p->super();
+    const auto r_d = (r == nullptr) ? nullptr : r_p->super();
+    const auto j_d = (j == nullptr) ? nullptr : j_p->super();
+    const auto s_d = (s == nullptr) ? nullptr : s_p->super();
+    const auto denominator = table.sum(i_d, r_d, j_d, s_d);
+    debug("denominator " << debugp(i_d, r_d, j_d, s_d) << " = " << denominator);
+    return denominator;
+}
 
-        // handle potential second application:
-        application = find_application_from(application_index, i, r, j, s);
-        if (application) {
-            debug("application " << *application << " applies to " << debugp(i, r, j, s));
-            result *= application->get_flow_share(table, i, r, j, s) * get_mapped_value(application, table, i, r, j, s);
+template<typename T, typename I>
+ProxyData<T, I>::Application::Application(Application* application1, Application* application2) {
+    if (application1->i == application2->i) {
+        i = application1->i;
+    } else {
+        if (application1->i == nullptr) {
+            i = application2->i;
+        } else if (application2->i == nullptr) {
+            i = application1->i;
+        } else {
+            throw std::runtime_error("Applications cannot be combined");
         }
-        return true;
     }
-    return false;
+    if (application1->r == application2->r) {
+        r = application1->r;
+    } else {
+        if (application1->r == nullptr) {
+            r = application2->r;
+        } else if (application2->r == nullptr) {
+            r = application1->r;
+        } else {
+            throw std::runtime_error("Applications cannot be combined");
+        }
+    }
+    if (application1->j == application2->j) {
+        j = application1->j;
+    } else {
+        if (application1->j == nullptr) {
+            j = application2->j;
+        } else if (application2->j == nullptr) {
+            j = application1->j;
+        } else {
+            throw std::runtime_error("Applications cannot be combined");
+        }
+    }
+    if (application1->s == application2->s) {
+        s = application1->s;
+    } else {
+        if (application1->s == nullptr) {
+            s = application2->s;
+        } else if (application2->s == nullptr) {
+            s = application1->s;
+        } else {
+            throw std::runtime_error("Applications cannot be combined");
+        }
+    }
+}
+
+template<typename T, typename I>
+void ProxyData<T, I>::approximate(
+    const std::vector<FullIndex<I>>& full_indices, Table<T, I>& table, Table<std::size_t, I> quality, const Table<T, I>& last_table, std::size_t d) const {
+#ifdef LIBMRIO_SHOW_PROGRESS
+    progressbar::ProgressBar bar(full_indices.size(), "    Approximation");
+#endif
+#pragma omp parallel for default(shared) schedule(guided)
+    for (std::size_t k = 0; k < full_indices.size(); ++k) {
+        const auto& full_index = full_indices[k];
+        const auto i_p = full_index.i;
+        const auto r_p = full_index.r;
+        const auto j_p = full_index.j;
+        const auto s_p = full_index.s;
+
+        Application* application1 = nullptr;
+        Application* application2 = nullptr;
+        for (const auto& app : applications) {
+            if (app->applies_to(i_p, r_p, j_p, s_p)) {
+                if (application1 == nullptr) {
+                    application1 = app.get();
+                } else if (application2 == nullptr) {
+                    application2 = app.get();
+                } else {
+                    throw std::runtime_error("More than two applications apply to " + i_p->name + ":" + r_p->name + "->" + j_p->name + ":" + s_p->name);
+                }
+            }
+        }
+
+        if (application1 == nullptr) {
+            continue;
+        }
+
+        if (application2 == nullptr) {
+            const auto denominator = application1->get_flow_share_denominator(last_table, i_p, r_p, j_p, s_p);
+            if (denominator <= 0 || std::isnan(denominator)) {
+                continue;
+            }
+
+            for_all_sub<T, I>(i_p, r_p, j_p, s_p, [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
+                const auto share = get_mapped_value(application1, last_table, i, r, j, s) / denominator;
+                if (!std::isnan(share)) {
+                    const auto value = application1->get_flow(last_table, i, r, j, s) * share;
+                    if (!std::isnan(value)) {
+                        assert(value >= 0);
+                        table(i, r, j, s) = value;
+                        quality(i, r, j, s) = d;
+                    }
+                }
+            });
+            continue;
+        }
+
+        const auto denominator1 = application1->get_flow_share_denominator(last_table, i_p, r_p, j_p, s_p);
+        if (denominator1 <= 0 || std::isnan(denominator1)) {
+            continue;
+        }
+
+        const auto denominator2 = application2->get_flow_share_denominator(last_table, i_p, r_p, j_p, s_p);
+        if (denominator2 <= 0 || std::isnan(denominator2)) {
+            continue;
+        }
+
+        Application application_combo{application1, application2};
+
+        for_all_sub<T, I>(i_p, r_p, j_p, s_p, [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
+            T value;
+            auto share1 = get_mapped_value(application1, last_table, i, r, j, s) / denominator1;
+            auto share2 = get_mapped_value(application2, last_table, i, r, j, s) / denominator2;
+            if (std::isnan(share1)) {
+                if (std::isnan(share2)) {
+                    return;
+                }
+                value = application2->get_flow(last_table, i, r, j, s) * share2;
+            } else if (std::isnan(share2)) {
+                value = application1->get_flow(last_table, i, r, j, s) * share1;
+            } else {
+                value = application_combo.get_flow(last_table, i, r, j, s) * share1 * share2;
+            }
+            if (!std::isnan(value)) {
+                assert(value >= 0);
+                table(i, r, j, s) = value;
+                quality(i, r, j, s) = d;
+            }
+        });
+#ifdef LIBMRIO_SHOW_PROGRESS
+        ++bar;
+#endif
+    }
+}
+
+template<typename T, typename I>
+void ProxyData<T, I>::adjust(
+    const std::vector<FullIndex<I>>& full_indices, Table<T, I>& table, Table<std::size_t, I> quality, const Table<T, I>& basetable, std::size_t d) const {
+#ifdef LIBMRIO_SHOW_PROGRESS
+    progressbar::ProgressBar bar(full_indices.size(), "    Adjustment");
+#endif
+#pragma omp parallel for default(shared) schedule(guided)
+    for (std::size_t k = 0; k < full_indices.size(); ++k) {
+        const auto& full_index = full_indices[k];
+        const T& base = basetable.base(full_index.i, full_index.r, full_index.j, full_index.s);
+        if (base > 0) {
+            T sum_of_exact = 0;
+            T sum_of_non_exact = 0;
+            for_all_sub<T, I>(full_index.i, full_index.r, full_index.j, full_index.s,
+                              [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
+                                  if (quality(i, r, j, s) == d) {
+                                      sum_of_exact += table(i, r, j, s);
+                                  } else {
+                                      sum_of_non_exact += table(i, r, j, s);
+                                  }
+                              });
+            assert(sum_of_exact > 0 || sum_of_non_exact > 0);
+            T correction_factor = base / (sum_of_exact + sum_of_non_exact);
+            if (base > sum_of_exact && sum_of_non_exact > 0) {
+                for_all_sub<T, I>(full_index.i, full_index.r, full_index.j, full_index.s,
+                                  [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
+                                      if (quality(i, r, j, s) != d) {
+                                          table(i, r, j, s) = (base - sum_of_exact) * table(i, r, j, s) / sum_of_non_exact;
+                                      }
+                                  });
+            } else if (correction_factor < 1 || correction_factor > 1) {
+                for_all_sub<T, I>(full_index.i, full_index.r, full_index.j, full_index.s,
+                                  [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
+                                      table(i, r, j, s) = correction_factor * table(i, r, j, s);
+                                  });
+            }
+        }
+#ifdef LIBMRIO_SHOW_PROGRESS
+        ++bar;
+#endif
+    }
 }
 
 template class ProxyData<double, std::size_t>;
 template class ProxyData<float, std::size_t>;
+
 }  // namespace mrio
