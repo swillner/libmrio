@@ -1,0 +1,32 @@
+basetable:
+  type: csv
+  index: indices.csv
+  file: basetable.csv
+  threshold: 0
+output:
+  type: csv
+  index: output_indices.csv
+  file: output_data.csv
+disaggregation:
+  subs:
+    - type: region
+      id: REG1
+      into:
+        - REG1A
+        - REG1B
+  proxies:
+    - file: proxy.csv
+      columns:
+        sector:
+          type: sector
+          mapping:
+            file: mapping.csv
+            foreign_column: foreign
+            native_column: native
+        subregion:
+          type: subregion
+        value:
+          type: value
+      applications:
+        - [ i, r ]
+        - [ j, s ]

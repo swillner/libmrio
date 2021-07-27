@@ -20,8 +20,8 @@
 #include "MRIOTable.h"
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
-#include <sstream>
 #include <stdexcept>
 #include <tuple>
 #ifdef LIBMRIO_WITH_NETCDF
@@ -32,72 +32,133 @@
 #endif
 #include "csv-parser.h"
 
+#ifdef LIBMRIO_VERBOSE
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+#endif
+
 namespace mrio {
 
+#if defined(__GNUC__) || defined(__INTEL_COMPILER)
+#define likely(x) __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
+#else
+#define likely(x) (x)
+#define unlikely(x) (x)
+#endif
+
 template<typename T, typename I>
-const T Table<T, I>::sum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
+T Table<T, I>::sum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
     T res = 0;
-    if (i == nullptr) {
-        for (auto& i_l : index_set_.supersectors()) {
-            res += sum(i_l.get(), r, j, s);
-        }
-    } else if (i->has_sub()) {
-        for (auto& i_l : i->as_super()->sub()) {
-            res += sum(i_l, r, j, s);
-        }
-    } else if (r == nullptr) {
-        for (auto& r_l : (i->as_super() ? i->as_super() : i->parent())->regions()) {
-            res += sum(i, r_l, j, s);
-        }
-    } else if (r->has_sub()) {
-        for (auto& r_l : r->as_super()->sub()) {
-            res += sum(i, r_l, j, s);
-        }
-    } else if (j == nullptr) {
-        for (auto& j_l : index_set_.supersectors()) {
-            res += sum(i, r, j_l.get(), s);
-        }
-    } else if (j->has_sub()) {
-        for (auto& j_l : j->as_super()->sub()) {
-            res += sum(i, r, j_l, s);
-        }
-    } else if (s == nullptr) {
-        for (auto& s_l : (j->as_super() ? j->as_super() : j->parent())->regions()) {
-            res += sum(i, r, j, s_l);
-        }
-    } else if (s->has_sub()) {
-        for (auto& s_l : s->as_super()->sub()) {
-            res += sum(i, r, j, s_l);
-        }
-    } else {
-        return (*this)(i, r, j, s);
-    }
+    build_sum_source<false>(res, i, r, j, s);
     return res;
 }
 
 template<typename T, typename I>
-const T Table<T, I>::basesum(const SuperSector<I>* i, const SuperRegion<I>* r, const SuperSector<I>* j, const SuperRegion<I>* s) const noexcept {
+T Table<T, I>::basesum(const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
     T res = 0;
-    if (i == nullptr) {
-        for (auto& i_l : index_set_.supersectors()) {
-            res += basesum(i_l.get(), r, j, s);
+    build_sum_source<true>(res, i, r, j, s);
+    return res;
+}
+
+template<typename T, typename I>
+template<bool use_base>
+void Table<T, I>::build_sum_source(T& res, const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) const noexcept {
+    if (unlikely(i == nullptr)) {
+        if (unlikely(r == nullptr)) {
+            build_sum_target<use_base>(res, index_set_.supersectors(), true, j, s);
+        } else {
+            build_sum_target<use_base>(res, index_set_.supersectors(), r, j, s);
         }
-    } else if (r == nullptr) {
-        for (auto& r_l : i->regions()) {
-            res += basesum(i, r_l, j, s);
-        }
-    } else if (j == nullptr) {
-        for (auto& j_l : index_set_.supersectors()) {
-            res += basesum(i, r, j_l.get(), s);
-        }
-    } else if (s == nullptr) {
-        for (auto& s_l : j->regions()) {
-            res += basesum(i, r, j, s_l);
+    } else if (unlikely(i->has_sub())) {
+        if (unlikely(r == nullptr)) {
+            build_sum_target<use_base>(res, i->sub(), i->super()->regions(), j, s);
+        } else if (unlikely(r->has_sub())) {
+            build_sum_target<use_base>(res, i->sub(), r->sub(), j, s);
+        } else {
+            build_sum_target<use_base>(res, i->sub(), r, j, s);
         }
     } else {
-        return this->base(i, r, j, s);
+        if (unlikely(r == nullptr)) {
+            build_sum_target<use_base>(res, i, i->super()->regions(), j, s);
+        } else if (unlikely(r->has_sub())) {
+            build_sum_target<use_base>(res, i, r->sub(), j, s);
+        } else {
+            build_sum_target<use_base>(res, i, r, j, s);
+        }
     }
-    return res;
+}
+
+template<typename T, typename I>
+template<bool use_base, typename Arg_i, typename Arg_r>
+void Table<T, I>::build_sum_target(T& res, Arg_i&& i, Arg_r&& r, const Sector<I>* j, const Region<I>* s) const noexcept {
+    if (unlikely(j == nullptr)) {
+        if (unlikely(s == nullptr)) {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), index_set_.supersectors(), true);
+        } else {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), index_set_.supersectors(), s);
+        }
+    } else if (unlikely(j->has_sub())) {
+        if (unlikely(s == nullptr)) {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), j->sub(), j->super()->regions());
+        } else if (unlikely(s->has_sub())) {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), j->sub(), s->sub());
+        } else {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), j->sub(), s);
+        }
+    } else {
+        if (unlikely(s == nullptr)) {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), j, j->super()->regions());
+        } else if (unlikely(s->has_sub())) {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), j, s->sub());
+        } else {
+            add_sum<use_base, 0>(res, std::forward<Arg_i>(i), std::forward<Arg_r>(r), j, s);
+        }
+    }
+}
+
+template<typename T, typename I>
+template<bool use_base, int c, typename Arg1, typename Arg2, typename Arg3, typename Arg4>
+void Table<T, I>::add_sum(T& res, const std::vector<Arg1*>& arg1, Arg2&& arg2, Arg3&& arg3, Arg4&& arg4) const noexcept {
+    static_assert(c < 4);
+    for (const auto k : arg1) {
+        add_sum<use_base, c + 1>(res, std::forward<Arg2>(arg2), std::forward<Arg3>(arg3), std::forward<Arg4>(arg4), k);
+    }
+}
+
+template<typename T, typename I>
+template<bool use_base, int c, typename Arg1, typename Arg2, typename Arg3, typename Arg4>
+void Table<T, I>::add_sum(T& res, const std::vector<std::unique_ptr<Arg1>>& arg1, Arg2&& arg2, Arg3&& arg3, Arg4&& arg4) const noexcept {
+    static_assert(c < 4);
+    for (const auto& k : arg1) {
+        add_sum<use_base, c + 1>(res, std::forward<Arg2>(arg2), std::forward<Arg3>(arg3), std::forward<Arg4>(arg4), k.get());
+    }
+}
+
+template<typename T, typename I>
+template<bool use_base, int c, typename Arg3, typename Arg4>
+void Table<T, I>::add_sum(T& res, const std::vector<std::unique_ptr<Sector<I>>>& arg1, bool, Arg3&& arg3, Arg4&& arg4) const noexcept {
+    static_assert(c < 4);
+    for (const auto& sec : arg1) {
+        for (const auto& reg : sec->super()->regions()) {
+            add_sum<use_base, c + 2>(res, std::forward<Arg3>(arg3), std::forward<Arg4>(arg4), sec.get(), reg);
+        }
+    }
+}
+
+template<typename T, typename I>
+template<bool use_base, int c, typename Arg1, typename Arg2, typename Arg3, typename Arg4>
+void Table<T, I>::add_sum(T& res, const Arg1* arg1, Arg2&& arg2, Arg3&& arg3, Arg4&& arg4) const noexcept {
+    if constexpr (c < 4) {
+        add_sum<use_base, c + 1>(res, std::forward<Arg2>(arg2), std::forward<Arg3>(arg3), std::forward<Arg4>(arg4), arg1);
+    } else {
+        if constexpr (use_base) {
+            res += base(arg1, arg2, arg3, arg4);
+        } else {
+            res += (*this)(arg1, arg2, arg3, arg4);
+        }
+    }
 }
 
 template<typename T, typename I>
@@ -110,10 +171,7 @@ void Table<T, I>::read_indices_from_csv(std::istream& indicesstream) {
         } while (parser.next_row());
         index_set_.rebuild_indices();
     } catch (const csv::parser_exception& ex) {
-        std::stringstream s;
-        s << ex.what();
-        s << " (line " << ex.row << " col " << ex.col << ")";
-        throw std::runtime_error(s.str());
+        throw std::runtime_error(ex.format());
     }
 }
 
@@ -141,10 +199,7 @@ void Table<T, I>::read_data_from_csv(std::istream& datastream, const T& threshol
             parser.next_row();
         }
     } catch (const csv::parser_exception& ex) {
-        std::stringstream s;
-        s << ex.what();
-        s << " (line " << ex.row << " col " << ex.col << ")";
-        throw std::runtime_error(s.str());
+        throw std::runtime_error(ex.format());
     }
 }
 
@@ -156,17 +211,18 @@ void Table<T, I>::read_from_csv(std::istream& indicesstream, std::istream& datas
 }
 
 template<typename T, typename I>
-void Table<T, I>::write_to_csv(std::ostream& outstream) const {
+void Table<T, I>::write_to_csv(std::ostream& indicesstream, std::ostream& datastream) const {
     debug_out();
     for (const auto& row : index_set_.total_indices) {
         for (const auto& col : index_set_.total_indices) {
-            outstream << at(row.index, col.index) << ",";
+            datastream << at(row.index, col.index) << ",";
         }
-        outstream.seekp(-1, std::ios_base::end);
-        outstream << '\n';
+        datastream.seekp(-1, std::ios_base::end);
+        datastream << '\n';
+        indicesstream << row.sector->name << "," << row.region->name << '\n';
     }
-    outstream << std::flush;
-    outstream.seekp(-1, std::ios_base::end);
+    datastream << std::flush;
+    indicesstream << std::flush;
 }
 
 #ifdef LIBMRIO_WITH_NETCDF
@@ -310,53 +366,7 @@ void Table<T, I>::write_to_netcdf(const std::string& filename) const {
 #endif
 
 template<typename T, typename I>
-void Table<T, I>::insert_sector_offset_x_y(const SuperSector<I>* i, const I& i_regions_count, const I& subsectors_count) {
-    auto region = i->regions().rbegin();
-    if (region != i->regions().rend()) {
-        auto subregion = (*region)->sub().rbegin();
-        I next;
-        if (subregion == (*region)->sub().rend()) {
-            next = index_set_(i, *region);
-        } else {
-            next = index_set_(i, *subregion);
-        }
-        I new_size = index_set_.size() + i_regions_count * (subsectors_count - 1);
-        I x_offset = new_size;
-        for (I x = index_set_.size(); x-- > 0;) {
-            if (x == next) {
-                x_offset -= subsectors_count;
-                if (subregion != (*region)->sub().rend()) {
-                    ++subregion;
-                }
-                if (subregion == (*region)->sub().rend()) {
-                    ++region;
-                    if (region == i->regions().rend()) {
-                        next = -1;
-                    } else {
-                        subregion = (*region)->sub().rbegin();
-                        if (subregion == (*region)->sub().rend()) {
-                            next = index_set_(i, *region);
-                        } else {
-                            next = index_set_(i, *subregion);
-                        }
-                    }
-                } else {
-                    next = index_set_(i, *subregion);
-                }
-                for (I offset = subsectors_count; offset-- > 0;) {
-                    insert_sector_offset_y(i, i_regions_count, subsectors_count, x, x_offset + offset, subsectors_count);
-                }
-            } else {
-                --x_offset;
-                insert_sector_offset_y(i, i_regions_count, subsectors_count, x, x_offset, 1);
-            }
-        }
-    }
-}
-
-template<typename T, typename I>
-void Table<T, I>::insert_sector_offset_y(
-    const SuperSector<I>* i, const I& i_regions_count, const I& subsectors_count, const I& x, const I& x_offset, const I& divide_by) {
+void Table<T, I>::insert_sector_offset(const Sector<I>* i, const I& i_regions_count, const I& subsectors_count) noexcept {
     auto region = i->regions().rbegin();
     if (region != i->regions().rend()) {
         auto subregion = (*region)->sub().rbegin();
@@ -377,7 +387,7 @@ void Table<T, I>::insert_sector_offset_y(
                 if (subregion == (*region)->sub().rend()) {
                     ++region;
                     if (region == i->regions().rend()) {
-                        next = -1;
+                        next = IndexSet<I>::NOT_GIVEN;
                     } else {
                         subregion = (*region)->sub().rbegin();
                         if (subregion == (*region)->sub().rend()) {
@@ -390,18 +400,64 @@ void Table<T, I>::insert_sector_offset_y(
                     next = index_set_(i, *subregion);
                 }
                 for (I offset = subsectors_count; offset-- > 0;) {
-                    data[x_offset * new_size + y_offset + offset] = data[x * index_set_.size() + y] / subsectors_count / divide_by;
+                    insert_sector_offset_row(i, i_regions_count, subsectors_count, y, y_offset + offset, subsectors_count);
                 }
             } else {
                 --y_offset;
-                data[x_offset * new_size + y_offset] = data[x * index_set_.size() + y] / divide_by;
+                insert_sector_offset_row(i, i_regions_count, subsectors_count, y, y_offset, 1);
             }
         }
     }
 }
 
 template<typename T, typename I>
-void Table<T, I>::insert_region_offset_x_y(const SuperRegion<I>* r, const I& r_sectors_count, const I& subregions_count) {
+void Table<T, I>::insert_sector_offset_row(
+    const Sector<I>* i, const I& i_regions_count, const I& subsectors_count, const I& y, const I& y_offset, const I& divide_by) noexcept {
+    auto region = i->regions().rbegin();
+    if (region != i->regions().rend()) {
+        auto subregion = (*region)->sub().rbegin();
+        I next;
+        if (subregion == (*region)->sub().rend()) {
+            next = index_set_(i, *region);
+        } else {
+            next = index_set_(i, *subregion);
+        }
+        I new_size = index_set_.size() + i_regions_count * (subsectors_count - 1);
+        I x_offset = new_size;
+        for (I x = index_set_.size(); x-- > 0;) {
+            if (x == next) {
+                x_offset -= subsectors_count;
+                if (subregion != (*region)->sub().rend()) {
+                    ++subregion;
+                }
+                if (subregion == (*region)->sub().rend()) {
+                    ++region;
+                    if (region == i->regions().rend()) {
+                        next = IndexSet<I>::NOT_GIVEN;
+                    } else {
+                        subregion = (*region)->sub().rbegin();
+                        if (subregion == (*region)->sub().rend()) {
+                            next = index_set_(i, *region);
+                        } else {
+                            next = index_set_(i, *subregion);
+                        }
+                    }
+                } else {
+                    next = index_set_(i, *subregion);
+                }
+                for (I offset = subsectors_count; offset-- > 0;) {
+                    data[y_offset * new_size + x_offset + offset] = data[y * index_set_.size() + x] / subsectors_count / divide_by;
+                }
+            } else {
+                --x_offset;
+                data[y_offset * new_size + x_offset] = data[y * index_set_.size() + x] / divide_by;
+            }
+        }
+    }
+}
+
+template<typename T, typename I>
+void Table<T, I>::insert_region_offset(const Region<I>* r, const I& r_sectors_count, const I& subregions_count) noexcept {
     auto last_sector = r->sectors().rbegin();
     if (last_sector != r->sectors().rend()) {
         auto last_subsector = (*last_sector)->sub().rbegin();
@@ -420,59 +476,60 @@ void Table<T, I>::insert_region_offset_x_y(const SuperRegion<I>* r, const I& r_s
             first_index = index_set_(*first_subsector, r);
         }
         I new_size = index_set_.size() + r_sectors_count * (subregions_count - 1);
-        for (I x = index_set_.size(); x-- > last_index + 1;) {
-            insert_region_offset_y(r, r_sectors_count, subregions_count, x, new_size + x - index_set_.size(), 1, first_index, last_index);
+        for (I y = index_set_.size(); y-- > last_index + 1;) {
+            insert_region_offset_row(r, r_sectors_count, subregions_count, y, new_size + y - index_set_.size(), 1, first_index, last_index);
         }
-        for (I x = last_index + 1; x-- > first_index;) {
+        for (I y = last_index + 1; y-- > first_index;) {
             for (I offset = subregions_count; offset-- > 0;) {
-                insert_region_offset_y(r, r_sectors_count, subregions_count, x, x + offset * r_sectors_count, subregions_count, first_index, last_index);
+                insert_region_offset_row(r, r_sectors_count, subregions_count, y, y + offset * r_sectors_count, subregions_count, first_index, last_index);
             }
         }
-        for (I x = first_index; x-- > 0;) {
-            insert_region_offset_y(r, r_sectors_count, subregions_count, x, x, 1, first_index, last_index);
+        for (I y = first_index; y-- > 0;) {
+            insert_region_offset_row(r, r_sectors_count, subregions_count, y, y, 1, first_index, last_index);
         }
     }
 }
 
 template<typename T, typename I>
-void Table<T, I>::insert_region_offset_y(const SuperRegion<I>* r,
-                                         const I& r_sectors_count,
-                                         const I& subregions_count,
-                                         const I& x,
-                                         const I& x_offset,
-                                         const I& divide_by,
-                                         const I& first_index,
-                                         const I& last_index) {
+void Table<T, I>::insert_region_offset_row(const Region<I>* r,
+                                           const I& r_sectors_count,
+                                           const I& subregions_count,
+                                           const I& y,
+                                           const I& y_offset,
+                                           const I& divide_by,
+                                           const I& first_index,
+                                           const I& last_index) noexcept {
     (void)(r);
     I new_size = index_set_.size() + r_sectors_count * (subregions_count - 1);
-    for (I y = index_set_.size(); y-- > last_index + 1;) {
-        data[x_offset * new_size + new_size + y - index_set_.size()] = data[x * index_set_.size() + y] / divide_by;
+    for (I x = index_set_.size(); x-- > last_index + 1;) {
+        data[y_offset * new_size + new_size + x - index_set_.size()] = data[y * index_set_.size() + x] / divide_by;
     }
-    for (I y = last_index + 1; y-- > first_index;) {
+    for (I x = last_index + 1; x-- > first_index;) {
         for (I offset = subregions_count; offset-- > 0;) {
-            data[x_offset * new_size + y + offset * r_sectors_count] = data[x * index_set_.size() + y] / subregions_count / divide_by;
+            data[y_offset * new_size + x + offset * r_sectors_count] = data[y * index_set_.size() + x] / subregions_count / divide_by;
         }
     }
-    for (I y = first_index; y-- > 0;) {
-        data[x_offset * new_size + y] = data[x * index_set_.size() + y] / divide_by;
+    for (I x = first_index; x-- > 0;) {
+        data[y_offset * new_size + x] = data[y * index_set_.size() + x] / divide_by;
     }
 }
 
 template<typename T, typename I>
 void Table<T, I>::debug_out() const {
-#ifdef DEBUGOUT
+#ifdef LIBMRIO_VERY_VERBOSE
     std::cout << "\n====\n";
     std::cout << std::setprecision(3) << std::fixed;
-    for (const auto& y : index_set_.total_indices) {
-        std::cout << index_set_.at(y.sector, y.region) << " " << y.sector->name << " " << (!y.sector->parent() ? "     " : y.sector->parent()->name) << " "
-                  << (y.sector->parent() ? *y.sector->parent() : *y.sector) << " " << (*y.sector) << " " << y.sector->level_index() << " " << y.region->name
-                  << " " << (!y.region->parent() ? "     " : y.region->parent()->name) << " " << (y.region->parent() ? *y.region->parent() : *y.region) << " "
-                  << (*y.region) << " " << y.region->level_index() << "  |  ";
-        for (const auto& x : index_set_.total_indices) {
-            if (data[x.index * index_set_.size() + y.index] <= 0) {
+    for (const auto& from : index_set_.total_indices) {
+        std::cout << index_set_.at(from.sector, from.region) << " " << from.sector->name << " "
+                  << (!from.sector->parent() ? "     " : from.sector->parent()->name) << " " << (from.sector->parent() ? *from.sector->parent() : *from.sector)
+                  << " " << (*from.sector) << " " << from.sector->level_index() << " " << from.region->name << " "
+                  << (!from.region->parent() ? "     " : from.region->parent()->name) << " " << (from.region->parent() ? *from.region->parent() : *from.region)
+                  << " " << (*from.region) << " " << from.region->level_index() << "  |  ";
+        for (const auto& to : index_set_.total_indices) {
+            if (std::isnan(data[from.index * index_set_.size() + to.index])) {
                 std::cout << " .   ";
             } else {
-                std::cout << data[x.index * index_set_.size() + y.index];
+                std::cout << data[from.index * index_set_.size() + to.index];
             }
             std::cout << " ";
         }
@@ -485,7 +542,7 @@ void Table<T, I>::debug_out() const {
 template<typename T, typename I>
 void Table<T, I>::insert_subsectors(const std::string& name, const std::vector<std::string>& subsectors) {
     const Sector<I>* sector = index_set_.sector(name);
-    const SuperSector<I>* i = sector->as_super();
+    const Sector<I>* i = sector->as_super();
     if (!i) {
         throw std::runtime_error("'" + name + "' is a subsector");
     }
@@ -504,7 +561,7 @@ void Table<T, I>::insert_subsectors(const std::string& name, const std::vector<s
     data.resize((index_set_.size() + i_regions_count * (subsectors.size() - 1)) * (index_set_.size() + i_regions_count * (subsectors.size() - 1)));
     // blowup table accordingly
     // and alter values in table (equal distribution)
-    insert_sector_offset_x_y(i, i_regions_count, subsectors.size());
+    insert_sector_offset(i, i_regions_count, subsectors.size());
     // alter indices
     index_set_.insert_subsectors(name, subsectors);
     debug_out();
@@ -513,7 +570,7 @@ void Table<T, I>::insert_subsectors(const std::string& name, const std::vector<s
 template<typename T, typename I>
 void Table<T, I>::insert_subregions(const std::string& name, const std::vector<std::string>& subregions) {
     const Region<I>* region = index_set_.region(name);
-    const SuperRegion<I>* r = region->as_super();
+    const Region<I>* r = region->as_super();
     if (!r) {
         throw std::runtime_error("'" + name + "' is a subregion");
     }
@@ -532,7 +589,7 @@ void Table<T, I>::insert_subregions(const std::string& name, const std::vector<s
     data.resize((index_set_.size() + r_sectors_count * (subregions.size() - 1)) * (index_set_.size() + r_sectors_count * (subregions.size() - 1)));
     // blowup table accordingly
     // and alter values in table (equal distribution)
-    insert_region_offset_x_y(r, r_sectors_count, subregions.size());
+    insert_region_offset(r, r_sectors_count, subregions.size());
     // alter indices
     index_set_.insert_subregions(name, subregions);
     debug_out();
@@ -541,4 +598,5 @@ void Table<T, I>::insert_subregions(const std::string& name, const std::vector<s
 template class Table<float, std::size_t>;
 template class Table<double, std::size_t>;
 template class Table<int, std::size_t>;
+
 }  // namespace mrio

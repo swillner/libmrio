@@ -1,0 +1,26 @@
+basetable:
+  type: csv
+  index: indices.csv
+  file: basetable.csv
+  threshold: 0
+output:
+  type: csv
+  index: output_indices.csv
+  file: output_data.csv
+disaggregation:
+  subs:
+    - type: sector
+      id: SEC1
+      into:
+        - SEC1A
+        - SEC1B
+  proxies:
+    - file: proxy.csv
+      columns:
+        subsectorcol:
+          type: subsector
+        valuecol:
+          type: value
+      applications:
+        - [ i ]
+        - [ j ]

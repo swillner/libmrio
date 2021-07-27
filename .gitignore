@@ -4,3 +4,4 @@ GRTAGS
 GSYMS
 GTAGS
 compile_commands.json
+output_*.csv
