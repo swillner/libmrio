@@ -412,6 +412,9 @@ void ProxyData<T, I>::read_from_file(const settings::SettingsNode& settings_node
                 }
             }
             if (!skip) {
+                if (value < 0) {
+                    throw std::runtime_error("Invalid proxy value " + std::to_string(value) + " in " + filename);
+                }
 #ifdef DEBUG
                 data.at(value_index) = value;
 #else
