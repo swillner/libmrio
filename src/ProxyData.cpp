@@ -741,62 +741,53 @@ void ProxyData<T, I>::approximate(
             }
         }
 
-        if (application1 == nullptr) {
-            continue;
-        }
+        if (application1 != nullptr) {
+            if (application2 == nullptr) {
+                const auto denominator = application1->get_flow_share_denominator(last_table, i_p, r_p, j_p, s_p);
+                if (denominator > 0 && !std::isnan(denominator)) {
+                    for_all_sub<T, I>(i_p, r_p, j_p, s_p, [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
+                        const auto share = get_mapped_value(application1, last_table, i, r, j, s) / denominator;
+                        if (!std::isnan(share)) {
+                            const auto value = application1->get_flow(last_table, i, r, j, s) * share;
+                            if (!std::isnan(value)) {
+                                assert(value >= 0);
+                                table(i, r, j, s) = value;
+                                quality(i, r, j, s) = d;
+                            }
+                        }
+                    });
+                }
+            } else {
+                const auto denominator1 = application1->get_flow_share_denominator(last_table, i_p, r_p, j_p, s_p);
+                if (denominator1 > 0 && !std::isnan(denominator1)) {
+                    const auto denominator2 = application2->get_flow_share_denominator(last_table, i_p, r_p, j_p, s_p);
+                    if (denominator2 > 0 && !std::isnan(denominator2)) {
+                        Application application_combo{application1, application2};
 
-        if (application2 == nullptr) {
-            const auto denominator = application1->get_flow_share_denominator(last_table, i_p, r_p, j_p, s_p);
-            if (denominator <= 0 || std::isnan(denominator)) {
-                continue;
-            }
-
-            for_all_sub<T, I>(i_p, r_p, j_p, s_p, [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
-                const auto share = get_mapped_value(application1, last_table, i, r, j, s) / denominator;
-                if (!std::isnan(share)) {
-                    const auto value = application1->get_flow(last_table, i, r, j, s) * share;
-                    if (!std::isnan(value)) {
-                        assert(value >= 0);
-                        table(i, r, j, s) = value;
-                        quality(i, r, j, s) = d;
+                        for_all_sub<T, I>(i_p, r_p, j_p, s_p, [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
+                            T value;
+                            auto share1 = get_mapped_value(application1, last_table, i, r, j, s) / denominator1;
+                            auto share2 = get_mapped_value(application2, last_table, i, r, j, s) / denominator2;
+                            if (std::isnan(share1)) {
+                                if (std::isnan(share2)) {
+                                    return;
+                                }
+                                value = application2->get_flow(last_table, i, r, j, s) * share2;
+                            } else if (std::isnan(share2)) {
+                                value = application1->get_flow(last_table, i, r, j, s) * share1;
+                            } else {
+                                value = application_combo.get_flow(last_table, i, r, j, s) * share1 * share2;
+                            }
+                            if (!std::isnan(value)) {
+                                assert(value >= 0);
+                                table(i, r, j, s) = value;
+                                quality(i, r, j, s) = d;
+                            }
+                        });
                     }
                 }
-            });
-            continue;
-        }
-
-        const auto denominator1 = application1->get_flow_share_denominator(last_table, i_p, r_p, j_p, s_p);
-        if (denominator1 <= 0 || std::isnan(denominator1)) {
-            continue;
-        }
-
-        const auto denominator2 = application2->get_flow_share_denominator(last_table, i_p, r_p, j_p, s_p);
-        if (denominator2 <= 0 || std::isnan(denominator2)) {
-            continue;
-        }
-
-        Application application_combo{application1, application2};
-
-        for_all_sub<T, I>(i_p, r_p, j_p, s_p, [&](const Sector<I>* i, const Region<I>* r, const Sector<I>* j, const Region<I>* s) {
-            T value;
-            auto share1 = get_mapped_value(application1, last_table, i, r, j, s) / denominator1;
-            auto share2 = get_mapped_value(application2, last_table, i, r, j, s) / denominator2;
-            if (std::isnan(share1)) {
-                if (std::isnan(share2)) {
-                    return;
-                }
-                value = application2->get_flow(last_table, i, r, j, s) * share2;
-            } else if (std::isnan(share2)) {
-                value = application1->get_flow(last_table, i, r, j, s) * share1;
-            } else {
-                value = application_combo.get_flow(last_table, i, r, j, s) * share1 * share2;
             }
-            if (!std::isnan(value)) {
-                assert(value >= 0);
-                table(i, r, j, s) = value;
-                quality(i, r, j, s) = d;
-            }
-        });
+        }
 #ifdef LIBMRIO_SHOW_PROGRESS
         ++bar;
 #endif
