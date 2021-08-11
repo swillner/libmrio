@@ -164,7 +164,7 @@ class ProxyData {
     };
 
     std::vector<T> data;
-    std::vector<std::unique_ptr<ProxyIndex>> indices;
+    std::unordered_map<std::string, std::unique_ptr<ProxyIndex>> indices;
     std::vector<std::unique_ptr<Application>> applications;
     const IndexSet<I> table_indices;
 

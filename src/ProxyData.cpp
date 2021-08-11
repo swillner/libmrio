@@ -320,8 +320,8 @@ void ProxyData<T, I>::read_from_file(const settings::SettingsNode& settings_node
                     }
                     index->stride = size;
                     size *= index->size;
-                    column.index = index.release();
-                    indices.emplace_back(column.index);
+                    column.index = index.get();
+                    indices.emplace(name, std::move(index));
                 }
                 column_names.insert(name);
             } else {  // !columns_node.has(name)
@@ -428,44 +428,57 @@ void ProxyData<T, I>::read_from_file(const settings::SettingsNode& settings_node
 
     for (const auto& application_node : settings_node["applications"].as_sequence()) {
         std::unique_ptr<Application> application{new Application{}};
-        std::size_t i = 0;
-        for (const auto& index_node : application_node.as_sequence()) {
-            if (i >= indices.size()) {
-                throw std::runtime_error("Too many indices for application given");
+        const auto& desc = application_node.to_vector<std::string>();
+        if (desc.size() != 4) {
+            throw std::runtime_error("Application should be given for exactly four indices");
+        }
+        size_t i = 0;
+        if (desc[0] != "_") {
+            const auto it = indices.find(desc[0]);
+            if (it == std::end(indices)) {
+                throw std::runtime_error("Unknown index column '" + desc[0] + "'");
             }
-            auto index_str = index_node.as<settings::hstring>();
-            switch (index_str) {
-                case settings::hstring::hash("i"):
-                    if (indices[i]->type != ProxyIndex::Type::SECTOR && indices[i]->type != ProxyIndex::Type::SUBSECTOR) {
-                        throw std::runtime_error("Cannot apply non-sector column to sector index i");
-                    }
-                    application->i = indices[i].get();
-                    break;
-                case settings::hstring::hash("r"):
-                    if (indices[i]->type != ProxyIndex::Type::REGION && indices[i]->type != ProxyIndex::Type::SUBREGION) {
-                        throw std::runtime_error("Cannot apply non-region column to region index r");
-                    }
-                    application->r = indices[i].get();
-                    break;
-                case settings::hstring::hash("j"):
-                    if (indices[i]->type != ProxyIndex::Type::SECTOR && indices[i]->type != ProxyIndex::Type::SUBSECTOR) {
-                        throw std::runtime_error("Cannot apply non-sector column to sector index j");
-                    }
-                    application->j = indices[i].get();
-                    break;
-                case settings::hstring::hash("s"):
-                    if (indices[i]->type != ProxyIndex::Type::REGION && indices[i]->type != ProxyIndex::Type::SUBREGION) {
-                        throw std::runtime_error("Cannot apply non-region column to region index s");
-                    }
-                    application->s = indices[i].get();
-                    break;
-                default:
-                    throw std::runtime_error("Unknown index name " + index_str);
+            if (it->second->type != ProxyIndex::Type::SECTOR && it->second->type != ProxyIndex::Type::SUBSECTOR) {
+                throw std::runtime_error("Cannot apply non-sector column to sector index i");
             }
+            application->i = it->second.get();
             ++i;
         }
-        if (i < indices.size()) {
-            throw std::runtime_error("All indices must be used for application");
+        if (desc[1] != "_") {
+            const auto it = indices.find(desc[1]);
+            if (it == std::end(indices)) {
+                throw std::runtime_error("Unknown index column '" + desc[1] + "'");
+            }
+            if (it->second->type != ProxyIndex::Type::REGION && it->second->type != ProxyIndex::Type::SUBREGION) {
+                throw std::runtime_error("Cannot apply non-region column to region index r");
+            }
+            application->r = it->second.get();
+            ++i;
+        }
+        if (desc[2] != "_") {
+            const auto it = indices.find(desc[2]);
+            if (it == std::end(indices)) {
+                throw std::runtime_error("Unknown index column '" + desc[2] + "'");
+            }
+            if (it->second->type != ProxyIndex::Type::SECTOR && it->second->type != ProxyIndex::Type::SUBSECTOR) {
+                throw std::runtime_error("Cannot apply non-sector column to sector index j");
+            }
+            application->j = it->second.get();
+            ++i;
+        }
+        if (desc[3] != "_") {
+            const auto it = indices.find(desc[3]);
+            if (it == std::end(indices)) {
+                throw std::runtime_error("Unknown index column '" + desc[3] + "'");
+            }
+            if (it->second->type != ProxyIndex::Type::REGION && it->second->type != ProxyIndex::Type::SUBREGION) {
+                throw std::runtime_error("Cannot apply non-region column to region index s");
+            }
+            application->s = it->second.get();
+            ++i;
+        }
+        if (i != indices.size()) {
+            throw std::runtime_error("Each indix column must be used exactly once for application");
         }
         applications.emplace_back(application.release());
     }
