@@ -318,6 +318,7 @@ void ProxyData<T, I>::read_from_file(const settings::SettingsNode& settings_node
                     } else {
                         index->size = index_native_size;
                     }
+                    index->stride = size;
                     size *= index->size;
                     column.index = index.release();
                     indices.emplace_back(column.index);
@@ -358,14 +359,13 @@ void ProxyData<T, I>::read_from_file(const settings::SettingsNode& settings_node
                         break;
                     case Column::Type::INDEX: {
                         auto str = in.read_and_next<std::string>();
-                        value_index *= column.index->size;
                         switch (column.index->type) {
                             case ProxyIndex::Type::SECTOR:
                                 try {
                                     if (column.index->mapped) {
-                                        value_index += column.index->foreign_indices_map.at(str)->index;
+                                        value_index += column.index->foreign_indices_map.at(str)->index * column.index->stride;
                                     } else {
-                                        value_index += table_indices.sector(str)->level_index();
+                                        value_index += table_indices.sector(str)->level_index() * column.index->stride;
                                     }
                                 } catch (std::out_of_range& ex) {
                                     throw std::runtime_error("Sector " + str + " from " + filename + " not found");
@@ -374,9 +374,9 @@ void ProxyData<T, I>::read_from_file(const settings::SettingsNode& settings_node
                             case ProxyIndex::Type::SUBSECTOR:
                                 try {
                                     if (column.index->mapped) {
-                                        value_index += column.index->foreign_indices_map.at(str)->index;
+                                        value_index += column.index->foreign_indices_map.at(str)->index * column.index->stride;
                                     } else {
-                                        value_index += table_indices.sector(str)->level_index();
+                                        value_index += table_indices.sector(str)->level_index() * column.index->stride;
                                     }
                                 } catch (std::out_of_range& ex) {
                                     throw std::runtime_error("Sector " + str + " from " + filename + " not found");
@@ -385,9 +385,9 @@ void ProxyData<T, I>::read_from_file(const settings::SettingsNode& settings_node
                             case ProxyIndex::Type::REGION:
                                 try {
                                     if (column.index->mapped) {
-                                        value_index += column.index->foreign_indices_map.at(str)->index;
+                                        value_index += column.index->foreign_indices_map.at(str)->index * column.index->stride;
                                     } else {
-                                        value_index += table_indices.region(str)->level_index();
+                                        value_index += table_indices.region(str)->level_index() * column.index->stride;
                                     }
                                 } catch (std::out_of_range& ex) {
                                     throw std::runtime_error("Region " + str + " from " + filename + " not found");
@@ -396,9 +396,9 @@ void ProxyData<T, I>::read_from_file(const settings::SettingsNode& settings_node
                             case ProxyIndex::Type::SUBREGION:
                                 try {
                                     if (column.index->mapped) {
-                                        value_index += column.index->foreign_indices_map.at(str)->index;
+                                        value_index += column.index->foreign_indices_map.at(str)->index * column.index->stride;
                                     } else {
-                                        value_index += table_indices.region(str)->level_index();
+                                        value_index += table_indices.region(str)->level_index() * column.index->stride;
                                     }
                                 } catch (std::out_of_range& ex) {
                                     throw std::runtime_error("Region " + str + " from " + filename + " not found");
@@ -484,7 +484,6 @@ inline T ProxyData<T, I>::sum_proxy_over_all_foreign_clusters_helper(I index,
                                                                      const Sector<I>* j_p,
                                                                      const Region<I>* s_p) const {
     T res = 0;
-    index *= proxy_index->size;
     if (proxy_index->mapped) {
         const auto& cluster = proxy_index->native_indices[level_index]->foreign_cluster;
         if (!cluster) {
@@ -494,11 +493,11 @@ inline T ProxyData<T, I>::sum_proxy_over_all_foreign_clusters_helper(I index,
         }
         debug("sum over foreign cluster " << *cluster);
         for (const auto& k : *cluster) {
-            res += sum_proxy_over_all_foreign_clusters(index + k->index, i, r, j, s, i_p, r_p, j_p, s_p);
+            res += sum_proxy_over_all_foreign_clusters(index + k->index * proxy_index->stride, i, r, j, s, i_p, r_p, j_p, s_p);
         }
     } else {
         debug("index does not need to be mapped");
-        res += sum_proxy_over_all_foreign_clusters(index + level_index, i, r, j, s, i_p, r_p, j_p, s_p);
+        res += sum_proxy_over_all_foreign_clusters(index + level_index * proxy_index->stride, i, r, j, s, i_p, r_p, j_p, s_p);
     }
     return res;
 }

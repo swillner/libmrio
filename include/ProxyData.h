@@ -130,6 +130,7 @@ class ProxyData {
         const bool sub;
         const Type type;
         std::size_t size;
+        std::size_t stride;
         std::vector<std::unique_ptr<MappingIndexPart>> native_indices;
         std::vector<std::unique_ptr<MappingIndexPart>> foreign_indices;
         std::unordered_map<std::string, MappingIndexPart*> foreign_indices_map;
