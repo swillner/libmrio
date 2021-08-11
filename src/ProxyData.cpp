@@ -715,7 +715,7 @@ ProxyData<T, I>::Application::Application(Application* application1, Application
 
 template<typename T, typename I>
 void ProxyData<T, I>::approximate(
-    const std::vector<FullIndex<I>>& full_indices, Table<T, I>& table, Table<std::size_t, I> quality, const Table<T, I>& last_table, std::size_t d) const {
+    const std::vector<FullIndex<I>>& full_indices, Table<T, I>& table, Table<std::size_t, I>& quality, const Table<T, I>& last_table, std::size_t d) const {
 #ifdef LIBMRIO_SHOW_PROGRESS
     progressbar::ProgressBar bar(full_indices.size(), "    Approximation");
 #endif
@@ -795,8 +795,11 @@ void ProxyData<T, I>::approximate(
 }
 
 template<typename T, typename I>
-void ProxyData<T, I>::adjust(
-    const std::vector<FullIndex<I>>& full_indices, Table<T, I>& table, Table<std::size_t, I> quality, const Table<T, I>& basetable, std::size_t d) const {
+void ProxyData<T, I>::adjust(const std::vector<FullIndex<I>>& full_indices,
+                             Table<T, I>& table,
+                             const Table<std::size_t, I>& quality,
+                             const Table<T, I>& basetable,
+                             std::size_t d) const {
 #ifdef LIBMRIO_SHOW_PROGRESS
     progressbar::ProgressBar bar(full_indices.size(), "    Adjustment");
 #endif

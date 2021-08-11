@@ -198,9 +198,12 @@ class ProxyData {
     explicit ProxyData(IndexSet<I> table_indices_p) : table_indices(std::move(table_indices_p)) {}
     void read_from_file(const settings::SettingsNode& settings_node);
     void approximate(
-        const std::vector<FullIndex<I>>& full_indices, Table<T, I>& table, Table<std::size_t, I> quality, const Table<T, I>& last_table, std::size_t d) const;
-    void adjust(
-        const std::vector<FullIndex<I>>& full_indices, Table<T, I>& table, Table<std::size_t, I> quality, const Table<T, I>& basetable, std::size_t d) const;
+        const std::vector<FullIndex<I>>& full_indices, Table<T, I>& table, Table<std::size_t, I>& quality, const Table<T, I>& last_table, std::size_t d) const;
+    void adjust(const std::vector<FullIndex<I>>& full_indices,
+                Table<T, I>& table,
+                const Table<std::size_t, I>& quality,
+                const Table<T, I>& basetable,
+                std::size_t d) const;
 };
 }  // namespace mrio
 
